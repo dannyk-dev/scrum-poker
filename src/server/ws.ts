@@ -14,7 +14,8 @@ wss.on('error', (err) => {
 const handler = applyWSSHandler({
   wss,
   router: appRouter,
-  createContext: (opts) => createTRPCContext(opts),
+  // @ts-expect-error
+  createContext: createTRPCContext,
   // Enable heartbeat messages to keep connection open (disabled by default)
   keepAlive: {
     enabled: true,
@@ -33,6 +34,8 @@ wss.on('connection', (ws) => {
   });
 });
 console.log('✅ WebSocket Server listening on ws://localhost:3001');
+
+
 process.on('SIGTERM', () => {
   console.log('SIGTERM');
   handler.broadcastReconnectNotification();
