@@ -14,17 +14,6 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
-}
 
 // Necessary for Next auth
 model Account {
@@ -62,7 +51,12 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-    posts         Post[]
+    rooms        RoomUser[]
+  votes        Vote[]
+  invitations  Invitation[]  @relation("UserInvites")
+  notifications Notification[]
+
+    Game Game[]
 }
 
 model VerificationToken {
@@ -71,4 +65,77 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model Room {
+  id            String          @id @default(cuid())
+  name          String
+  createdAt     DateTime     @default(now())
+  users         RoomUser[]
+  games         Game[]
+  invitations   Invitation[]
+}
+
+model RoomUser {
+  user         User    @relation(fields: [userId], references: [id])
+  userId       String
+  room         Room    @relation(fields: [roomId], references: [id])
+  roomId       String
+  role         Role    @default(USER)
+  joinedAt     DateTime @default(now())
+
+  @@id([roomId, userId])
+}
+
+model Invitation {
+  id            String       @id @default(cuid())
+  room          Room      @relation(fields: [roomId], references: [id])
+  roomId        String
+  email         String
+  token         String    @unique
+  invitedBy     User      @relation("UserInvites", fields: [invitedById], references: [id])
+  invitedById   String
+  accepted      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  acceptedAt    DateTime?
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  user        User             @relation(fields: [userId], references: [id])
+  userId      String
+  type        NotificationType
+  message     String
+  data        Json?
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+}
+
+model Game {
+  id            String       @id @default(cuid())
+  room          Room      @relation(fields: [roomId], references: [id])
+  roomId        String
+  scrumMaster   User      @relation(fields: [scrumMasterId], references: [id])
+  scrumMasterId String
+  createdAt     DateTime  @default(now())
+  votes         Vote[]
+}
+
+model Vote {
+  id       Int      @id @default(autoincrement())
+  game     Game     @relation(fields: [gameId], references: [id])
+  gameId   String
+  user     User     @relation(fields: [userId], references: [id])
+  userId   String
+  value    Int
+}
+
+enum Role {
+  SCRUM_MASTER
+  USER
+}
+
+enum NotificationType {
+  GameStarted
+  Invitation
 }

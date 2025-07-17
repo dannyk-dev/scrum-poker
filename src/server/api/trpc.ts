@@ -57,6 +57,13 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   },
 });
 
+export const isAuthed = t.middleware(({ ctx, next }) => {
+  const user = ctx.session?.user;
+
+  if (!user) throw new Error('UNAUTHORIZED');
+  return next({ ctx: { user } });
+});
+
 /**
  * Create a server-side caller.
  *
