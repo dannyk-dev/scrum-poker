@@ -1,27 +1,30 @@
 import { z } from 'zod';
-import { createTRPCRouter, isAuthed } from '@/server/api/trpc';
+import { createTRPCRouter, isAuthed, protectedProcedure } from '@/server/api/trpc';
 import { observable } from '@trpc/server/observable';
 import { redisClient } from '@/server/redis';
 import { gameFinishQueue } from '@/server/queue';
 import { db } from '@/server/db';
 import crypto from 'crypto';
 import { Role } from '@prisma/client';
+import EventEmitter, {on} from 'node:events';
 
-export const gameRouter = createTRPCRouter
-  // Create a new room
-  .mutation('createRoom', {
-    input: z.object({ name: z.string().min(1) }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
-      const room = await db.room.create({ data: { name: input.name } });
+const ee = new EventEmitter();
+const voteEmitter = new EventEmitter();
+
+export const gameRouter = createTRPCRouter({
+  createRoom: protectedProcedure
+    .input(z.object({ name: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const room = await db.room.create({
+        data: {
+          name: input.name,
+        },
+      });
       return room;
-    },
-  })
-  // Invite players by email
-  .mutation('invitePlayers', {
-    input: z.object({ roomId: z.number(), emails: z.array(z.string().email()) }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
+    }),
+  invitePlayers: protectedProcedure
+    .input(z.object({ roomId: z.string(), emails: z.array(z.string().email()) }))
+    .mutation(async ({ input, ctx }) => {
       const invites = [];
       for (const email of input.emails) {
         const token = crypto.randomBytes(16).toString('hex');
@@ -30,18 +33,20 @@ export const gameRouter = createTRPCRouter
             roomId: input.roomId,
             email,
             token,
-            invitedById: ctx.user.id,
+            invitedById: ctx.session.user.id,
           },
         });
+
         invites.push(invitation);
-        // Send notification if user exists
         const user = await db.user.findUnique({ where: { email } });
+        const roomName = ctx.db.room.findUnique({ where: { id: input.roomId } }).then(room => room?.name || 'Unknown Room');
+
         if (user) {
           const notif = await db.notification.create({
             data: {
               userId: user.id,
               type: 'Invitation',
-              message: `You have been invited to room '${room.name}'.`,
+              message: `You have been invited to room '${roomName}'.`,
               data: { roomId: input.roomId, token },
             },
           });
@@ -49,13 +54,10 @@ export const gameRouter = createTRPCRouter
         }
       }
       return invites;
-    },
-  })
-  // Accept an invitation and join room
-  .mutation('acceptInvite', {
-    input: z.object({ token: z.string(), role: z.nativeEnum(Role).optional() }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
+    }),
+    acceptInvite: protectedProcedure
+    .input(z.object({ token: z.string(), role: z.nativeEnum(Role).optional() }))
+    .mutation(async ({ input, ctx }) => {
       const invite = await db.invitation.findUnique({ where: { token: input.token } });
       if (!invite || invite.accepted) throw new Error('Invalid or already used token');
       const existing = await db.roomUser.findMany({ where: { roomId: invite.roomId } });
@@ -64,21 +66,17 @@ export const gameRouter = createTRPCRouter
         return { needRole: true };
       }
       const roleToAssign = isFirst ? input.role! : 'USER';
-      const ru = await db.roomUser.create({ data: { roomId: invite.roomId, userId: ctx.user.id, role: roleToAssign } });
+      const ru = await db.roomUser.create({ data: { roomId: invite.roomId, userId: ctx.session.user.id, role: roleToAssign } });
       await db.invitation.update({ where: { id: invite.id }, data: { accepted: true, acceptedAt: new Date() } });
       return { roomUser: ru, needRole: false };
-    },
-  })
-  // Create game (Scrum Master only)
-  .mutation('startGame', {
-    input: z.object({ roomId: z.number() }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
-      // Verify Scrum Master
-      const ru = await db.roomUser.findUnique({ where: { roomId_userId: { roomId: input.roomId, userId: ctx.user.id } } });
+    }),
+    startGame: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const ru = await db.roomUser.findUnique({ where: { roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id } }, include: { room: true } });
       if (!ru || ru.role !== 'SCRUM_MASTER') throw new Error('Only Scrum Master can start the game');
-      const game = await db.game.create({ data: { roomId: input.roomId, scrumMasterId: ctx.user.id } });
-      // Notify participants
+      const game = await db.game.create({ data: { roomId: input.roomId, scrumMasterId: ctx.session.user.id } });
+
       const participants = await db.roomUser.findMany({ where: { roomId: input.roomId } });
       for (const p of participants) {
         const notif = await db.notification.create({
@@ -91,51 +89,39 @@ export const gameRouter = createTRPCRouter
         });
         await redisClient.publish(`user:${p.userId}:notifications`, JSON.stringify(notif));
       }
-      // Broadcast start
+
       await redisClient.publish(`room:${input.roomId}:start`, JSON.stringify({ gameId: game.id }));
       return game;
-    },
-  })
-  // Cast vote (USER only)
-  .mutation('castVote', {
-    input: z.object({ roomId: z.number(), gameId: z.number(), value: z.number() }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
-      const ru = await db.roomUser.findUnique({ where: { roomId_userId: { roomId: input.roomId, userId: ctx.user.id } } });
+    }),
+    castVote: protectedProcedure
+    .input(z.object({ roomId: z.string(), gameId: z.string(), value: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const ru = await db.roomUser.findUnique({ where: { roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id } } });
       if (!ru || ru.role !== 'USER') throw new Error('Only players can vote');
       const key = `game:${input.gameId}:votes`;
-      await redisClient.hset(key, ctx.user.id.toString(), input.value);
-      await redisClient.publish(`room:${input.roomId}:vote`, JSON.stringify({ userId: ctx.user.id, value: input.value }));
+      await redisClient.hset(key, ctx.session.user.id as any);
+      const voteData = { userId: ctx.session.user.id, value: input.value };
+      await redisClient.publish(`room:${input.roomId}:vote`, JSON.stringify(voteData));
+      voteEmitter.emit(`vote:${input.roomId}`, voteData);
       return { ok: true };
-    },
-  })
-  // End game and enqueue persistence
-  .mutation('endGame', {
-    input: z.object({ roomId: z.number(), gameId: z.number() }),
-    middleware: isAuthed,
-    resolve: async ({ input, ctx }) => {
+    }),
+  endGame: protectedProcedure
+    .input(z.object({ roomId: z.string(), gameId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       const game = await db.game.findUnique({ where: { id: input.gameId } });
-      if (!game || game.scrumMasterId !== ctx.user.id) throw new Error('Only Scrum Master can end game');
+      if (!game || game.scrumMasterId !== ctx.session.user.id) throw new Error('Only Scrum Master can end game');
       const key = `game:${input.gameId}:votes`;
       const state = await redisClient.hgetall(key);
       await gameFinishQueue.add('game-finish', { gameId: input.gameId, state });
       await redisClient.publish(`room:${input.roomId}:end`, JSON.stringify({ gameId: input.gameId }));
       return { ok: true };
-    },
-  })
-  // Subscription for votes
-  .subscription('onVote', {
-    input: z.object({ roomId: z.number() }),
-    resolve({ input }) {
-      return observable<{ userId: number; value: number }>((emit) => {
-        const channel = `room:${input.roomId}:vote`;
-        const handler = (chan: string, msg: string) => chan === channel && emit.next(JSON.parse(msg));
-        redisClient.subscribe(channel);
-        redisClient.on('message', handler);
-        return () => { redisClient.unsubscribe(channel); redisClient.off('message', handler); };
-      });
-    },
-  })
+    }),
+  onVote: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .subscription(async function* (opts) {
+      
+    }),
+})
   // Subscription for game end
   .subscription('onGameEnd', {
     input: z.object({ roomId: z.number() }),
