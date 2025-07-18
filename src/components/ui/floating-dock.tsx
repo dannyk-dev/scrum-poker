@@ -11,7 +11,7 @@ import {
   useTransform,
 } from "motion/react";
 
-import { useRef, useState } from "react";
+import React, { useRef, useState, type ReactNode } from "react";
 
 export const FloatingDock = ({
   items,
@@ -89,12 +89,14 @@ const FloatingDockDesktop = ({
   items,
   className,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string }[];
+  items: { title: string; icon: React.ReactNode; href: string; component?: ReactNode }[];
   className?: string;
 }) => {
   let mouseX = useMotionValue(Infinity);
   return (
-    <motion.div
+    <>
+
+      <motion.div
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
@@ -102,10 +104,11 @@ const FloatingDockDesktop = ({
         className,
       )}
     >
-      {items.map((item) => (
-        <IconContainer mouseX={mouseX} key={item.title} {...item} />
+      {items.map(({ component, icon, ...item }) => (
+        <IconContainer mouseX={mouseX} key={item.title} {...item} icon={component ?? icon} />
       ))}
     </motion.div>
+    </>
   );
 };
 

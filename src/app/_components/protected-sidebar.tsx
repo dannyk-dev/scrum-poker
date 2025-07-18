@@ -1,5 +1,6 @@
 'use client'
 
+import ThemeSwitcher from '@/app/_components/theme-switcher';
 import { FloatingDock } from '@/components/ui/floating-dock';
 import { IconCards, IconHome, IconLogin, IconReportAnalytics, IconUserCircle } from '@tabler/icons-react';
 import React, { useMemo } from 'react'
@@ -28,6 +29,10 @@ const tabLinks = [
       ),
       href: '#'
     },
+    {
+      title: "Theme",
+      component: <ThemeSwitcher />
+    }
   ];
 
 type Props = {

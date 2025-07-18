@@ -5,12 +5,11 @@ import { trpc, HydrateClient } from "@/trpc/server";
 import { Button } from "@/components/ui/button";
 
 export default async function Home() {
-  const hello = await trpc.post.hello({ text: "from tRPC" });
   const session = await auth();
 
-  if (session?.user) {
-    void trpc.post.getLatest.prefetch();
-  }
+  // if (session?.user) {
+  //   void trpc.post.getLatest.prefetch();
+  // }
 
   return (
     <HydrateClient>

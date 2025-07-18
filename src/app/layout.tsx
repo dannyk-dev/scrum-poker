@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "@/trpc/react";
 import ProtectedSidebar from "@/app/_components/protected-sidebar";
 import { auth } from "@/server/auth";
+import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -24,13 +25,15 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className={`${geist.variable}`}>
+    <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-background antialiased">
-        <TRPCReactProvider>
+        <ThemeProvider attribute='class' defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <TRPCReactProvider>
           {children}
 
           <ProtectedSidebar isAuthorized={Boolean(session)} />
         </TRPCReactProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
