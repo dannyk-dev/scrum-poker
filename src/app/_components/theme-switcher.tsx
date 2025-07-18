@@ -27,7 +27,7 @@ const ThemeSwitcher = () => {
         open={open}
         setOpen={setOpen}
         width="200px"
-
+        popupClass='-top-24'
         height="175px"
         showCloseButton={true}
         useWrapperButton

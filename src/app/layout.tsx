@@ -7,6 +7,7 @@ import { TRPCReactProvider } from "@/trpc/react";
 import ProtectedSidebar from "@/app/_components/protected-sidebar";
 import { auth } from "@/server/auth";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -26,12 +27,13 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-background antialiased">
+      <body className="min-h-screen bg-background antialiased overflow-hidden">
         <ThemeProvider attribute='class' defaultTheme="dark" enableSystem disableTransitionOnChange>
           <TRPCReactProvider>
           {children}
 
           <ProtectedSidebar isAuthorized={Boolean(session)} />
+          <Toaster closeButton position="bottom-right" expand />
         </TRPCReactProvider>
         </ThemeProvider>
       </body>

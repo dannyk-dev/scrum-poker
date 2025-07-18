@@ -20,7 +20,7 @@ export default function InPageSidebar({
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col justify-between  min-w-[250px] mr-[8px] h-full border-r-2 border-r-gray-600">
+    <div className="flex flex-col justify-between  min-w-[250px] mr-[8px] h-full ">
       <div className="flex flex-col gap-[4px] px-0 ">
         {items.map((item, index) => {
           const { label, href, disabled = false } = item;
@@ -66,7 +66,7 @@ function SidebarLink({
           }
         }}
         className={cn(
-          "p-2 py-3 rounded-md hover:bg-secondary text-sm text-gray-500 hover:text-foreground transition-colors",
+          "p-2 py-3 rounded-md hover:bg-neutral-200 dark:hover:bg-secondary text-sm text-secondary-foreground hover:text-foreground transition-colors",
           isActive &&
             "bg-accent text-accent-foreground font-medium hover:text-foreground",
           isDisabled && "text-gray-600 cursor-not-allowed hover:text-gray-700"

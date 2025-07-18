@@ -9,7 +9,7 @@ export default async function Home() {
 
   return (
     <HydrateClient>
-      <main className="bg-background">
+      <main className="bg-background overflow-x-hidden">
         <Button asChild variant="secondary">
           <Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
             {session ? "Sign out" : "Sign in"}

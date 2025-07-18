@@ -3,6 +3,8 @@
 import { ReactNode, RefObject, useEffect, useRef } from "react"
 import { ChevronUp, Loader } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { cn } from "@/lib/utils"
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 type PopoverFormProps = {
   open: boolean
@@ -16,7 +18,8 @@ type PopoverFormProps = {
   title: string;
   icon?: ReactNode;
   preferIcon: boolean;
-  useWrapperButton?: boolean;
+  showTitleBeforeChild?: boolean;
+  popupClass?: string;
 }
 
 export function PopoverForm({
@@ -29,8 +32,10 @@ export function PopoverForm({
   height = "192px",
   title = "Feedback",
   showCloseButton = false,
-  preferIcon = false,
+  preferIcon = true,
+  popupClass,
   icon,
+  showTitleBeforeChild = false
 }: PopoverFormProps) {
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
@@ -38,7 +43,7 @@ export function PopoverForm({
   return (
     <div
       key={title}
-      className="flex z-20  w-full items-center justify-center"
+      className="flex z-50  w-fit items-center justify-center"
     >
       <motion.button
         layoutId={`${title}-wrapper`}
@@ -58,7 +63,7 @@ export function PopoverForm({
         {open && (
           <motion.div
             layoutId={`${title}-wrapper`}
-            className="absolute -top-24 p-1 overflow-hidden bg-muted shadow-[0_0_0_1px_rgba(0,0,0,0.08),0px_1px_2px_rgba(0,0,0,0.04)] outline-none"
+            className={cn("absolute p-1 z-50 overflow-hidden bg-muted shadow-[0_0_0_1px_rgba(0,0,0,0.08),0px_1px_2px_rgba(0,0,0,0.04)] outline-none", popupClass)}
             ref={ref}
             style={{ borderRadius: 10, width, height }}
           >
@@ -102,9 +107,24 @@ export function PopoverForm({
                   transition={{ type: "spring", duration: 0.4, bounce: 0 }}
                   key="open-child"
                   style={{ borderRadius: 10 }}
-                  className="h-full border bg-white dark:bg-[#121212] z-20 "
+                  className={cn(
+                    "h-full  border bg-white dark:bg-[#121212] z-20 ",
+                    showTitleBeforeChild && 'flex py-4 flex-col space-y-4'
+                  )}
                 >
-                  {openChild}
+                  {showTitleBeforeChild ? (
+                    <>
+                      <CardHeader>
+                    <CardTitle>
+                      {title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {openChild}
+                  </CardContent>
+                    </>
+                  ): openChild}
+
                 </motion.div>
               )}
             </AnimatePresence>

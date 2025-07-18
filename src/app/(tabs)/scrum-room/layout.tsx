@@ -1,6 +1,7 @@
+import CreateRoom from '@/app/(tabs)/scrum-room/_components/create-room';
 import RoomsSidebar from '@/app/(tabs)/scrum-room/_components/rooms-sidebar';
 import { BorderBeam } from '@/components/magicui/border-beam';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { trpc } from '@/trpc/server'
 import React, { type PropsWithChildren } from 'react'
 
@@ -9,12 +10,13 @@ const RoomsLayout = ({children}: PropsWithChildren) => {
 
   return (
     <div className="w-4/5 mx-auto min-h-screen flex items-center justify-center">
-      <Card className='w-full h-[600px] z-10 shadow-2xl relative overflow-hidden'>
-      <CardHeader>
-        <CardTitle className='text-xl font-semibold px-2'>Scrum Room</CardTitle>
-        <CardDescription className='px-2'>
-          {/* <ProfileBreadCrumbs items={profileLinks} /> */}
-        </CardDescription>
+      <Card className='w-full h-[600px] z-10 shadow-2xl relative'>
+      <CardHeader className='w-1/5'>
+        <CardTitle className='text-xl font-semibold px-2 flex w-full items-center justify-between'>
+          <span className='w-fit'>Scrum Room</span>
+          <CreateRoom  />
+        </CardTitle>
+
       </CardHeader>
       <CardContent className='h-full'>
         <div className="grid grid-cols-5 h-full w-full ">

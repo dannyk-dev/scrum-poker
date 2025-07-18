@@ -13,6 +13,7 @@ import { Role } from "@prisma/client";
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import type { Notification } from "prisma/interfaces";
+import { revalidatePath } from "next/cache";
 
 const ee = new EventEmitter();
 const voteEmitter = new EventEmitter();
@@ -23,14 +24,25 @@ export const gameRouter = createTRPCRouter({
   getRooms: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.db.room.findMany({
       include: {
-        users: true
+        users: true,
+        _count: true,
+        games: {
+          include: {
+            _count: true,
+
+          }
+        }
       },
+
     })
   }),
   createRoom: protectedProcedure
     .input(z.object({ name: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      return await db.room.create({ data: { name: input.name } });
+      const room = await db.room.create({ data: { name: input.name } });
+      revalidatePath('/scrum-room');
+
+      return room;
     }),
 
   invitePlayers: protectedProcedure
