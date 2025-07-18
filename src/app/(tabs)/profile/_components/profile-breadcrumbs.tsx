@@ -35,22 +35,16 @@ export default function ProfileBreadCrumbs({
   rootLabel,
   items = [],
 }: AutoBreadcrumbsProps) {
-  const pathname = usePathname(); // current path, e.g. /profile/team/members
+  const pathname = usePathname();
 
-  // Normalise basePath – remove trailing slash except for root "/"
   basePath = basePath === "/" ? "/" : basePath.replace(/\/$/, "");
 
-  /**
-   * Strip basePath from pathname so we only build crumbs for the leftover
-   * segments. Example: basePath=/profile, pathname=/profile/team → "team".
-   */
   const relative = pathname.startsWith(basePath)
     ? pathname.slice(basePath.length)
     : pathname;
 
-  const segments = relative.split("/").filter(Boolean); // ["team", …]
+  const segments = relative.split("/").filter(Boolean);
 
-  // Cumulative hrefs starting with the basePath
   const crumbs: { label: string; href: string }[] = [];
   let running = basePath === "/" ? "" : basePath;
 

@@ -20,6 +20,13 @@ const gameEndEmitter = new EventEmitter();
 const notificationEmitter = new EventEmitter();
 
 export const gameRouter = createTRPCRouter({
+  getRooms: protectedProcedure.query(async ({ ctx }) => {
+    return await ctx.db.room.findMany({
+      include: {
+        users: true
+      },
+    })
+  }),
   createRoom: protectedProcedure
     .input(z.object({ name: z.string().min(1) }))
     .mutation(async ({ input }) => {

@@ -7,10 +7,6 @@ import { Button } from "@/components/ui/button";
 export default async function Home() {
   const session = await auth();
 
-  // if (session?.user) {
-  //   void trpc.post.getLatest.prefetch();
-  // }
-
   return (
     <HydrateClient>
       <main className="bg-background">

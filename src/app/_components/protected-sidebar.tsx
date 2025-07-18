@@ -20,7 +20,7 @@ const tabLinks = [
       icon: (
         <IconCards className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
-      href: "#",
+      href: "/scrum-room",
     },
     {
       title: "Sprint Analytics",
