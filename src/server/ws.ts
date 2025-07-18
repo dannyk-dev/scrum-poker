@@ -1,14 +1,14 @@
-import { applyWSSHandler } from '@trpc/server/adapters/ws';
-import  { WebSocketServer, type Server } from 'ws';
-import { appRouter } from '@/server/api/root';
-import { createTRPCContext } from '@/server/api/trpc';
+import { applyWSSHandler } from "@trpc/server/adapters/ws";
+import { WebSocketServer, type Server } from "ws";
+import { appRouter } from "@/server/api/root";
+import { createTRPCContext } from "@/server/api/trpc";
 
 const wss = new WebSocketServer({
   port: 3001,
 });
 
-wss.on('error', (err) => {
-  console.error('WebSocket Server Error:', err);
+wss.on("error", (err) => {
+  console.error("WebSocket Server Error:", err);
 });
 
 const handler = applyWSSHandler({
@@ -26,18 +26,16 @@ const handler = applyWSSHandler({
   },
 });
 
-
-wss.on('connection', (ws) => {
+wss.on("connection", (ws) => {
   console.log(`➕➕ Connection (${wss.clients.size})`);
-  ws.once('close', () => {
+  ws.once("close", () => {
     console.log(`➖➖ Connection (${wss.clients.size})`);
   });
 });
-console.log('✅ WebSocket Server listening on ws://localhost:3001');
+console.log("✅ WebSocket Server listening on ws://localhost:3001");
 
-
-process.on('SIGTERM', () => {
-  console.log('SIGTERM');
+process.on("SIGTERM", () => {
+  console.log("SIGTERM");
   handler.broadcastReconnectNotification();
   wss.close();
 });

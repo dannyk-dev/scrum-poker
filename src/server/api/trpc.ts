@@ -8,12 +8,14 @@
  */
 
 import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
+import superjson, { SuperJSON } from "superjson";
 import { ZodError } from "zod";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
+import { createWSClient, wsLink } from "@trpc/client";
+import type { AppRouter } from "./root";
 
 /**
  * 1. CONTEXT
@@ -27,7 +29,7 @@ import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: CreateNextContextOptions) => {
+export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth();
 
   return {
@@ -59,11 +61,10 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   },
 });
 
-
 export const isAuthed = t.middleware(({ ctx, next }) => {
   const user = ctx.session?.user;
 
-  if (!user) throw new Error('UNAUTHORIZED');
+  if (!user) throw new Error("UNAUTHORIZED");
   return next({ ctx: { user } });
 });
 
@@ -110,6 +111,15 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 
   return result;
 });
+
+// export const wssLink = wsLink<AppRouter>({
+//   client: createWSClient({
+//     url: "ws://localhost:3001",
+//     onOpen: () => console.info("ws con established"),
+//     onClose: () => console.info("ws con closed"),
+//   }),
+//   transformer: SuperJSON,
+// });
 
 /**
  * Public (unauthenticated) procedure

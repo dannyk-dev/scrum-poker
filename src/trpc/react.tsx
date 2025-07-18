@@ -9,7 +9,7 @@ import SuperJSON from "superjson";
 
 import { type AppRouter } from "@/server/api/root";
 import { createQueryClient } from "./query-client";
-import { wsClient } from "@/trpc/server";
+// import { wssLink } from "@/server/api/trpc";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {
@@ -45,10 +45,6 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
-        wsLink({
-          client: wsClient,
-          transformer: SuperJSON
-        }),
         loggerLink({
           enabled: (op) =>
             process.env.NODE_ENV === "development" ||
