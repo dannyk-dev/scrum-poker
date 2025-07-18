@@ -26,14 +26,7 @@ export const gameRouter = createTRPCRouter({
       include: {
         users: true,
         _count: true,
-        games: {
-          include: {
-            _count: true,
-
-          }
-        }
       },
-
     })
   }),
   createRoom: protectedProcedure
@@ -42,6 +35,21 @@ export const gameRouter = createTRPCRouter({
       const room = await db.room.create({ data: { name: input.name } });
       revalidatePath('/scrum-room');
 
+      return room;
+    }),
+  updateRoom: protectedProcedure
+    .input(z.object({ roomId: z.string(), name: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const room = await ctx.db.room.update({ where: { id: input.roomId }, data: { name: input.name } });
+      revalidatePath('/scrum-room');
+
+      return room;
+    }),
+  deleteRoom: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const room = await ctx.db.room.delete({ where: { id: input.roomId } });
+      revalidatePath('/scrum-room')
       return room;
     }),
 

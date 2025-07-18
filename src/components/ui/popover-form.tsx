@@ -5,6 +5,7 @@ import { ChevronUp, Loader } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 type PopoverFormProps = {
   open: boolean
@@ -20,6 +21,7 @@ type PopoverFormProps = {
   preferIcon: boolean;
   showTitleBeforeChild?: boolean;
   popupClass?: string;
+  isAction?: boolean;
 }
 
 export function PopoverForm({
@@ -35,7 +37,8 @@ export function PopoverForm({
   preferIcon = true,
   popupClass,
   icon,
-  showTitleBeforeChild = false
+  showTitleBeforeChild = false,
+  isAction = false
 }: PopoverFormProps) {
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
@@ -45,10 +48,27 @@ export function PopoverForm({
       key={title}
       className="flex z-50  w-fit items-center justify-center"
     >
-      <motion.button
+      {isAction ? (
+        <motion.button
         layoutId={`${title}-wrapper`}
         onClick={() => setOpen(true)}
-        // style={{ borderRadius: 8 }}
+      >
+        <Button variant="ghost" className="rounded-lg font-medium text-sm font-sans" asChild>
+        <motion.span layoutId={`${title}-title`}>
+          {preferIcon ? (
+            icon
+          ) : <>
+            {icon ?? icon}
+            {title}
+          </>}
+        </motion.span>
+
+      </Button>
+      </motion.button>
+      ) : (
+        <motion.button
+        layoutId={`${title}-wrapper`}
+        onClick={() => setOpen(true)}
         className="flex h-9 items-center    text-sm font-medium outline-none cursor-pointer"
       >
         <motion.span layoutId={`${title}-title`}>
@@ -59,6 +79,7 @@ export function PopoverForm({
           )}
         </motion.span>
       </motion.button>
+      )}
       <AnimatePresence>
         {open && (
           <motion.div
