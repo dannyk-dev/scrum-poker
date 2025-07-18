@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { httpBatchStreamLink, loggerLink, wsLink } from "@trpc/client";
+import { createWSClient, httpBatchStreamLink, loggerLink, wsLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
@@ -39,12 +39,21 @@ export type RouterInputs = inferRouterInputs<AppRouter>;
  */
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
+const wsClient = createWSClient({
+  url: `ws://localhost:3001`,
+
+});
+
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
+        wsLink({
+          client: wsClient,
+          transformer: SuperJSON
+        }),
         loggerLink({
           enabled: (op) =>
             process.env.NODE_ENV === "development" ||

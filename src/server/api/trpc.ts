@@ -13,9 +13,7 @@ import { ZodError } from "zod";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
-import { createWSClient, wsLink } from "@trpc/client";
-import type { AppRouter } from "./root";
+
 
 /**
  * 1. CONTEXT
@@ -48,7 +46,6 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
  */
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
-
   errorFormatter({ shape, error }) {
     return {
       ...shape,
