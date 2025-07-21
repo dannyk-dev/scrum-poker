@@ -26,12 +26,17 @@ const handler = applyWSSHandler({
   },
 });
 
-// wss.on("connection", (ws) => {
-//   console.log(`➕➕ Connection (${wss.clients.size})`);
-//   ws.once("close", () => {
-//     console.log(`➖➖ Connection (${wss.clients.size})`);
-//   });
-// });
+let lastLog = 0;
+wss.on('connection', (_, req) => {
+  const now = Date.now();
+  if (now - lastLog > 1000) {
+    console.log('⚡️ WS connection from', req.socket.remoteAddress);
+    lastLog = now;
+  }
+});
+wss.on('close', () => {
+  console.log('⛔️ WS disconnected');
+});
 console.log("✅ WebSocket Server listening on ws://localhost:3001");
 
 process.on("SIGTERM", () => {

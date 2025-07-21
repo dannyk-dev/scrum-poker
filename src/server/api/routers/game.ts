@@ -5,24 +5,50 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import { observable } from "@trpc/server/observable";
-import { redisClient } from "@/server/redis";
+import { getRedisClient } from "@/server/redis";
 import { db } from "@/server/db";
 import crypto from "crypto";
 import { Role } from "@prisma/client";
-import EventEmitter from "node:events";
-import { TRPCError } from "@trpc/server";
-import type { Notification } from "prisma/interfaces";
+import EventEmitter, { on } from "node:events";
+import { tracked, TRPCError } from "@trpc/server";
+import type { Notification, RoomUser } from "prisma/interfaces";
 import { revalidatePath } from "next/cache";
+
+type EventMap<T> = Record<keyof T, any[]>;
+class IterableEventEmitter<T extends EventMap<T>> extends EventEmitter<T> {
+  toIterable<TEventName extends keyof T & string>(
+    eventName: TEventName,
+    opts?: NonNullable<Parameters<typeof on>[2]>,
+  ): AsyncIterable<T[TEventName]> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return on(this as any, eventName, opts) as any;
+  }
+}
+
+export interface InviteEvents {
+  onNotification: [notification: Notification]
+}
 
 const ee = new EventEmitter();
 const voteEmitter = new EventEmitter();
 const gameEndEmitter = new EventEmitter();
-const notificationEmitter = new EventEmitter();
+// const notificationEmitter = new EventEmitter();
 const roomUserEmitter = new EventEmitter();
+
+const notificationEmitter = new EventEmitter();
 
 export const gameRouter = createTRPCRouter({
   getRooms: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
     return await ctx.db.room.findMany({
+      where: {
+        users: {
+          some: {
+            userId,
+          },
+        },
+      },
       include: {
         users: true,
         _count: true,
@@ -60,14 +86,20 @@ export const gameRouter = createTRPCRouter({
   deleteRoom: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await ctx.db.roomUser.deleteMany({
+        where: {
+          roomId: input.roomId,
+        },
+      });
       const room = await ctx.db.room.delete({ where: { id: input.roomId } });
+
       revalidatePath("/scrum-room");
       return room;
     }),
   getRoomById: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const room = ctx.db.room.findUnique({
+      return await ctx.db.room.findUnique({
         where: { id: input.roomId },
         include: {
           users: true,
@@ -76,12 +108,23 @@ export const gameRouter = createTRPCRouter({
         },
       });
     }),
+  getPlayerEmails: protectedProcedure.query(async ({ ctx }) => {
+    const players = await ctx.db.user.findMany({
+      include: {
+        rooms: true,
+        accounts: true,
+        _count: true,
+      },
+    });
 
+    return players;
+  }),
   invitePlayers: protectedProcedure
     .input(
       z.object({ roomId: z.string(), emails: z.array(z.string().email()) }),
     )
     .mutation(async ({ input, ctx }) => {
+      const redisClient = getRedisClient();
       const room = await db.room.findUnique({ where: { id: input.roomId } });
       if (!room)
         throw new TRPCError({ code: "NOT_FOUND", message: "Room not found" });
@@ -111,8 +154,7 @@ export const gameRouter = createTRPCRouter({
             await redisClient.publish(
               `user:${user.id}:notifications`,
               JSON.stringify(notif),
-            );
-            // Emit WebSocket notification
+            ).catch(err => console.error(err));
             notificationEmitter.emit(`notification:${user.id}`, notif);
           }
           return invitation;
@@ -150,8 +192,8 @@ export const gameRouter = createTRPCRouter({
           role: roleToAssign,
         },
         include: {
-          user: true
-        }
+          user: true,
+        },
       });
 
       await db.invitation.update({
@@ -159,19 +201,32 @@ export const gameRouter = createTRPCRouter({
         data: { accepted: true, acceptedAt: new Date() },
       });
 
-      roomUserEmitter.emit(`accepted:${roomUser.userId}:${roomUser.roomId}`, roomUser);
+      roomUserEmitter.emit(
+        `accepted:${roomUser.userId}:${roomUser.roomId}`,
+        roomUser,
+      );
       return { roomUser, needRole: false };
     }),
   onAcceptInvite: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .subscription(async ({ ctx, input, signal }) => {
+      const key = `accepted:${input.roomId}:${ctx.session.user.id}`;
 
-    })
+      return observable<RoomUser>((emit) => {
+        const onAccept = (data: RoomUser) => {
+          emit.next(data);
+        };
+
+        roomUserEmitter.on(key, onAccept);
+        return () => roomUserEmitter.off(key, onAccept);
+      });
+    }),
 
   // --- GAME LIFECYCLE ---
   startGame: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ input, ctx }) => {
+      const redisClient = getRedisClient();
       const ru = await db.roomUser.findUnique({
         where: {
           roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id },
@@ -221,6 +276,7 @@ export const gameRouter = createTRPCRouter({
       z.object({ roomId: z.string(), gameId: z.string(), value: z.number() }),
     )
     .mutation(async ({ input, ctx }) => {
+      const redisClient = getRedisClient();
       const ru = await db.roomUser.findUnique({
         where: {
           roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id },
@@ -244,6 +300,7 @@ export const gameRouter = createTRPCRouter({
   endGame: protectedProcedure
     .input(z.object({ roomId: z.string(), gameId: z.string() }))
     .mutation(async ({ input, ctx }) => {
+      const redisClient = getRedisClient();
       const game = await db.game.findUnique({ where: { id: input.gameId } });
       if (!game || game.scrumMasterId !== ctx.session.user.id) {
         throw new TRPCError({
@@ -258,6 +315,12 @@ export const gameRouter = createTRPCRouter({
       gameEndEmitter.emit(`end:${input.roomId}`, { gameId: input.gameId });
       return { ok: true };
     }),
+  getNotifications: protectedProcedure.query(({ ctx }) => {
+    return ctx.db.notification.findMany({
+      where: { userId: ctx.session.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+  }),
 
   // --- SUBSCRIPTIONS ---
   onVote: protectedProcedure
@@ -280,13 +343,36 @@ export const gameRouter = createTRPCRouter({
         return () => gameEndEmitter.off(`end:${input.roomId}`, handler);
       }),
     ),
+   onNotification: protectedProcedure
+  .subscription(async function* ({ ctx, signal }) {
+    const redisClient = getRedisClient();
+    notificationEmitter.on(`notification:${ctx.session.user.id}`, () => {
+      console.log('event called');
+    });
 
-  onNotification: protectedProcedure.subscription(({ ctx }) =>
-    observable<Notification>((emit) => {
-      const handler = (notif: Notification) => emit.next(notif);
-      notificationEmitter.on(`notification:${ctx.session.user.id}`, handler);
-      return () =>
-        notificationEmitter.off(`notification:${ctx.session.user.id}`, handler);
-    }),
-  ),
+    const existing = await ctx.db.notification.findMany({
+      where: { userId: ctx.session.user.id, read: false },
+      orderBy: { createdAt: 'asc' },
+    });
+    for (const n of existing) {
+      console.log(n);
+      yield tracked(n.id, n);
+    }
+
+    const sub = redisClient.subscribe<Notification>(
+      `user:${ctx.session.user.id}:notifications`
+    );
+
+    sub.on('message', (evt) => {
+      // yield tracked(evt.message.id, evt.message);
+      console.log(evt.message);
+    })
+
+    // for await (const { message } of sub) {
+    //   if (signal.aborted) break;
+    //   const notif = JSON.parse(message) as Notification;
+    //   yield tracked(notif.id, notif);
+    // }
+  }),
+
 });

@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
 
-export const redisClient = Redis.fromEnv({
-});
+export const getRedisClient = () => {
+  return Redis.fromEnv();
+}

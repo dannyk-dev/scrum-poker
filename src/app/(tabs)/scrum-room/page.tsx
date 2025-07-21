@@ -3,10 +3,12 @@ import React, { Suspense } from "react";
 import CreateRoom from "./_components/create-room";
 import RoomsSidebarSkeleton from "./_components/rooms-sidebar-skeleton";
 import RoomsSidebar from "./_components/rooms-sidebar";
+import { trpc } from "@/trpc/server";
 
-type Props = {};
+const ScrumRoomPage = async () => {
+  void await trpc.game.getPlayerEmails.prefetch();
+  const rooms = await trpc.game.getRooms();
 
-const ScrumRoomPage = (props: Props) => {
   return (
     <>
       <CardHeader className="w-2/6 pr-0">
@@ -19,7 +21,7 @@ const ScrumRoomPage = (props: Props) => {
         <div className="grid h-full w-full grid-cols-6">
           <div className="col-span-2">
             <Suspense fallback={<RoomsSidebarSkeleton />}>
-              <RoomsSidebar />
+              <RoomsSidebar rooms={rooms} />
             </Suspense>
           </div>
           <div className="col-span-4">

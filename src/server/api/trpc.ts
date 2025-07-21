@@ -13,6 +13,7 @@ import { ZodError } from "zod";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
+import type { CreateNextContextOptions } from "@trpc/server/adapters/next";
 
 
 /**
@@ -27,7 +28,7 @@ import { db } from "@/server/db";
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: { headers: Headers }) => {
+export const createTRPCContext = async (opts?: {header: Headers}) => {
   const session = await auth();
 
   return {

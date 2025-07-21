@@ -1,8 +1,10 @@
 "use client";
 
+import NotificationsPopup from "@/app/_components/notifications-popup";
 import ThemeSwitcher from "@/app/_components/theme-switcher";
 import { FloatingDock } from "@/components/ui/floating-dock";
 import {
+  IconBellRinging,
   IconCards,
   IconHome,
   IconLogin,
@@ -33,6 +35,13 @@ const tabLinks = [
       <IconReportAnalytics className="h-full w-full text-neutral-500 dark:text-neutral-300" />
     ),
     href: "#",
+  },
+  {
+    title: "Notifications",
+    icon: (
+      <NotificationsPopup />
+    ),
+    href: '#'
   },
   {
     title: "Theme",

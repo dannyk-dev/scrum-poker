@@ -48,6 +48,9 @@ export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 const wsClient = createWSClient({
   url: `ws://localhost:3001`,
+  onError(err) {
+    console.error(err)
+  }
 });
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
@@ -69,7 +72,11 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               const headers = new Headers();
               headers.set("x-trpc-source", "nextjs-react");
               return headers;
+              // return {
+              //   "x-trpc-source": "nextjs-react"
+              // }
             },
+            // fetch: (input, init) => fetch(input, { ...init, credentials: 'include' })
           }),
         }),
         loggerLink({

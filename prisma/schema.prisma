@@ -81,9 +81,9 @@ model Room {
 }
 
 model RoomUser {
-  user         User    @relation(fields: [userId], references: [id])
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String
-  room         Room    @relation(fields: [roomId], references: [id])
+  room         Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId       String
   role         Role    @default(USER)
   joinedAt     DateTime @default(now())

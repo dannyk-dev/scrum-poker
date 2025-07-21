@@ -1,12 +1,15 @@
 import RoomActions from "@/app/(tabs)/scrum-room/_components/room-actions";
 import InPageSidebar from "@/app/_components/in-page-sidebar";
 import { Badge } from "@/components/ui/badge";
-import { getBaseUrl } from "@/lib/utils";
-import { trpc } from "@/trpc/server";
+import type { Room } from "prisma/interfaces";
 import React from "react";
 
-const RoomsSidebar = async () => {
-  const rooms = await trpc.game.getRooms();
+type Props = {
+  rooms: (Room & {_count: { users: number; }})[]
+}
+
+const RoomsSidebar = async ({ rooms }: Props) => {
+
   const basePath = "/scrum-room";
 
   const sidebarLinks = rooms.map((item) => ({

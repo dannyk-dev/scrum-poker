@@ -29,6 +29,7 @@ import type { Room } from "prisma/interfaces";
 import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import UpdateRoom from "./update-room";
+import InvitePlayers from "@/app/(tabs)/scrum-room/_components/invite-players";
 
 type Props = {
   room: Room;
@@ -80,10 +81,11 @@ const RoomActions = ({ room }: Props) => {
           <DropdownMenuContent>
             <DropdownMenuGroup>
               <UpdateRoom room={room} />
-              <DropdownMenuItem>
+              <InvitePlayers room={room} />
+              {/* <DropdownMenuItem>
                 <IconSend />
                 Invite Players
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive">
                 <IconCircleMinus />

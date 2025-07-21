@@ -30,11 +30,10 @@ const ThemeSwitcher = () => {
         popupClass='-top-24'
         height="175px"
         showCloseButton={true}
-        useWrapperButton
         openChild={
           <div className="p-2">
 
-            <div className="pt-2 space-y-2">
+            <div className="pt-2 space-y-2 z-0">
               {themes.map((t) => {
                 const isSelected = theme === t
                 const effectiveTheme: Theme = (t === "system" ? systemTheme : t) as Theme
@@ -46,7 +45,7 @@ const ThemeSwitcher = () => {
                       setTheme(t);
                       setOpen(false);
                     }}
-                    className={`w-full flex items-center px-3 py-2 text-sm rounded-md ${
+                    className={`w-full  flex items-center px-3 py-2 text-sm rounded-md ${
                       isSelected
                         ? `bg-primary ${
                             effectiveTheme === "light"
