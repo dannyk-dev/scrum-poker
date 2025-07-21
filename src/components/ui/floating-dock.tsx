@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { cn } from "@/lib/utils";
 import { IconLayoutNavbarCollapse } from "@tabler/icons-react";
@@ -89,25 +89,34 @@ const FloatingDockDesktop = ({
   items,
   className,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; component?: ReactNode }[];
+  items: {
+    title: string;
+    icon: React.ReactNode;
+    href: string;
+    component?: ReactNode;
+  }[];
   className?: string;
 }) => {
   let mouseX = useMotionValue(Infinity);
   return (
     <>
-
       <motion.div
-      onMouseMove={(e) => mouseX.set(e.pageX)}
-      onMouseLeave={() => mouseX.set(Infinity)}
-      className={cn(
-        "mx-auto hidden h-16 items-end gap-4 rounded-2xl bg-gray-50 px-4 pb-3 md:flex dark:bg-neutral-900",
-        className,
-      )}
-    >
-      {items.map(({ component, icon, ...item }) => (
-        <IconContainer mouseX={mouseX} key={item.title} {...item} icon={component ?? icon} />
-      ))}
-    </motion.div>
+        onMouseMove={(e) => mouseX.set(e.pageX)}
+        onMouseLeave={() => mouseX.set(Infinity)}
+        className={cn(
+          "mx-auto hidden h-16 items-end gap-4 rounded-2xl bg-gray-50 px-4 pb-3 md:flex dark:bg-neutral-900",
+          className,
+        )}
+      >
+        {items.map(({ component, icon, ...item }) => (
+          <IconContainer
+            mouseX={mouseX}
+            key={item.title}
+            {...item}
+            icon={component ?? icon}
+          />
+        ))}
+      </motion.div>
     </>
   );
 };

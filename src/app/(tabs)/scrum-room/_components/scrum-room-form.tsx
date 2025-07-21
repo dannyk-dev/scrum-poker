@@ -1,28 +1,39 @@
-'use client'
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 // import { Button } from '@/components/ui/stateful-button'
-import { roomSchema, type TRoomSchema } from '@/lib/schemas/room.schema'
-import { zodResolver } from '@hookform/resolvers/zod'
-import React from 'react'
-import { useForm } from 'react-hook-form'
+import { roomSchema, type TRoomSchema } from "@/lib/schemas/room.schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import React from "react";
+import { useForm } from "react-hook-form";
 
 type Props = {
   onSubmit: (payload: TRoomSchema) => void;
   defaultValues?: TRoomSchema;
   isPending?: boolean;
   isSuccess?: boolean;
-}
+};
 
-const ScrumRoomForm = ({onSubmit, isPending = false, isSuccess = false}: Props) => {
+const ScrumRoomForm = ({
+  onSubmit,
+  isPending = false,
+  isSuccess = false,
+  defaultValues = { name: "" },
+}: Props) => {
   const form = useForm<TRoomSchema>({
     resolver: zodResolver(roomSchema),
-    defaultValues: {
-      name: ''
-    }
-  })
+    defaultValues,
+  });
 
   return (
     <Form {...form}>
@@ -40,10 +51,17 @@ const ScrumRoomForm = ({onSubmit, isPending = false, isSuccess = false}: Props) 
             </FormItem>
           )}
         />
-        <Button size="sm" className='w-full' isLoading={isPending} type="submit">Confirm</Button>
+        <Button
+          size="sm"
+          className="w-full"
+          isLoading={isPending}
+          type="submit"
+        >
+          Confirm
+        </Button>
       </form>
     </Form>
-  )
-}
+  );
+};
 
-export default ScrumRoomForm
+export default ScrumRoomForm;

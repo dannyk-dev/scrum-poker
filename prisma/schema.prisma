@@ -76,7 +76,7 @@ model Room {
   name          String
   createdAt     DateTime     @default(now())
   users         RoomUser[]
-  games         Game[]
+  game          Game?
   invitations   Invitation[]
 }
 
@@ -118,7 +118,7 @@ model Notification {
 model Game {
   id            String       @id @default(cuid())
   room          Room      @relation(fields: [roomId], references: [id])
-  roomId        String
+  roomId        String @unique
   scrumMaster   User      @relation(fields: [scrumMasterId], references: [id])
   scrumMasterId String
   createdAt     DateTime  @default(now())

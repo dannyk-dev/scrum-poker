@@ -1,11 +1,13 @@
-import React from 'react'
+import { CardHeader } from "@/components/ui/card";
+import { trpc } from "@/trpc/server";
+import React from "react";
 
-type Props = {}
+const ScrumRoom = async () => {
+  const room = trpc.game.return(
+    <>
+      <CardHeader></CardHeader>
+    </>,
+  );
+};
 
-const ScrumRoom = (props: Props) => {
-  return (
-    <div>ScrumRoom</div>
-  )
-}
-
-export default ScrumRoom
+export default ScrumRoom;

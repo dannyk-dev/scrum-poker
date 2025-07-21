@@ -1,14 +1,39 @@
-import React from 'react'
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { Suspense } from "react";
+import CreateRoom from "./_components/create-room";
+import RoomsSidebarSkeleton from "./_components/rooms-sidebar-skeleton";
+import RoomsSidebar from "./_components/rooms-sidebar";
 
-type Props = {}
+type Props = {};
 
 const ScrumRoomPage = (props: Props) => {
   return (
-    <div className='w-full h-full flex flex-col items-center justify-center mx-auto'>
-      <h1 className="text-2xl leading-loose">Welcome to scrum poker.</h1>
-      <p>Choose a room or create a new one</p>
-    </div>
-  )
-}
+    <>
+      <CardHeader className="w-2/6 pr-0">
+        <CardTitle className="flex w-full items-center justify-between px-0 font-semibold">
+          <span className="w-fit text-xl">Scrum Room</span>
+          <CreateRoom />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="h-full">
+        <div className="grid h-full w-full grid-cols-6">
+          <div className="col-span-2">
+            <Suspense fallback={<RoomsSidebarSkeleton />}>
+              <RoomsSidebar />
+            </Suspense>
+          </div>
+          <div className="col-span-4">
+            <div className="mx-auto flex h-full w-full flex-col items-center justify-center">
+              <h1 className="text-2xl leading-loose">
+                Welcome to scrum poker.
+              </h1>
+              <p>Choose a room or create a new one</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </>
+  );
+};
 
-export default ScrumRoomPage
+export default ScrumRoomPage;

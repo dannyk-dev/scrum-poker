@@ -6,7 +6,6 @@ import {
 } from "@/server/api/trpc";
 import { observable } from "@trpc/server/observable";
 import { redisClient } from "@/server/redis";
-import { gameFinishQueue } from "@/server/queue";
 import { db } from "@/server/db";
 import crypto from "crypto";
 import { Role } from "@prisma/client";
@@ -19,6 +18,7 @@ const ee = new EventEmitter();
 const voteEmitter = new EventEmitter();
 const gameEndEmitter = new EventEmitter();
 const notificationEmitter = new EventEmitter();
+const roomUserEmitter = new EventEmitter();
 
 export const gameRouter = createTRPCRouter({
   getRooms: protectedProcedure.query(async ({ ctx }) => {
@@ -27,21 +27,33 @@ export const gameRouter = createTRPCRouter({
         users: true,
         _count: true,
       },
-    })
+    });
   }),
   createRoom: protectedProcedure
     .input(z.object({ name: z.string().min(1) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const room = await db.room.create({ data: { name: input.name } });
-      revalidatePath('/scrum-room');
+
+      await ctx.db.roomUser.create({
+        data: {
+          role: Role.SCRUM_MASTER,
+          roomId: room.id,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      revalidatePath("/scrum-room");
 
       return room;
     }),
   updateRoom: protectedProcedure
     .input(z.object({ roomId: z.string(), name: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const room = await ctx.db.room.update({ where: { id: input.roomId }, data: { name: input.name } });
-      revalidatePath('/scrum-room');
+      const room = await ctx.db.room.update({
+        where: { id: input.roomId },
+        data: { name: input.name },
+      });
+      revalidatePath("/scrum-room");
 
       return room;
     }),
@@ -49,15 +61,30 @@ export const gameRouter = createTRPCRouter({
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const room = await ctx.db.room.delete({ where: { id: input.roomId } });
-      revalidatePath('/scrum-room')
+      revalidatePath("/scrum-room");
       return room;
+    }),
+  getRoomById: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const room = ctx.db.room.findUnique({
+        where: { id: input.roomId },
+        include: {
+          users: true,
+          invitations: true,
+          game: true,
+        },
+      });
     }),
 
   invitePlayers: protectedProcedure
-    .input(z.object({ roomId: z.string(), emails: z.array(z.string().email()) }))
+    .input(
+      z.object({ roomId: z.string(), emails: z.array(z.string().email()) }),
+    )
     .mutation(async ({ input, ctx }) => {
       const room = await db.room.findUnique({ where: { id: input.roomId } });
-      if (!room) throw new TRPCError({ code: "NOT_FOUND", message: "Room not found" });
+      if (!room)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Room not found" });
 
       const invites = await Promise.all(
         input.emails.map(async (email) => {
@@ -83,13 +110,13 @@ export const gameRouter = createTRPCRouter({
             });
             await redisClient.publish(
               `user:${user.id}:notifications`,
-              JSON.stringify(notif)
+              JSON.stringify(notif),
             );
             // Emit WebSocket notification
             notificationEmitter.emit(`notification:${user.id}`, notif);
           }
           return invitation;
-        })
+        }),
       );
 
       return invites;
@@ -98,12 +125,20 @@ export const gameRouter = createTRPCRouter({
   acceptInvite: protectedProcedure
     .input(z.object({ token: z.string(), role: z.nativeEnum(Role).optional() }))
     .mutation(async ({ input, ctx }) => {
-      const invite = await db.invitation.findUnique({ where: { token: input.token } });
+      const invite = await db.invitation.findUnique({
+        where: { token: input.token },
+      });
+
       if (!invite || invite.accepted) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid or already used token" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid or already used token",
+        });
       }
 
-      const members = await db.roomUser.findMany({ where: { roomId: invite.roomId } });
+      const members = await db.roomUser.findMany({
+        where: { roomId: invite.roomId },
+      });
       const isFirst = members.length === 0;
       if (isFirst && !input.role) return { needRole: true };
 
@@ -114,6 +149,9 @@ export const gameRouter = createTRPCRouter({
           userId: ctx.session.user.id,
           role: roleToAssign,
         },
+        include: {
+          user: true
+        }
       });
 
       await db.invitation.update({
@@ -121,24 +159,39 @@ export const gameRouter = createTRPCRouter({
         data: { accepted: true, acceptedAt: new Date() },
       });
 
+      roomUserEmitter.emit(`accepted:${roomUser.userId}:${roomUser.roomId}`, roomUser);
       return { roomUser, needRole: false };
     }),
+  onAcceptInvite: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .subscription(async ({ ctx, input, signal }) => {
+
+    })
 
   // --- GAME LIFECYCLE ---
   startGame: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const ru = await db.roomUser.findUnique({
-        where: { roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id } },
+        where: {
+          roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id },
+        },
         include: { room: true },
       });
       if (!ru || ru.role !== Role.SCRUM_MASTER) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only Scrum Master can start the game" });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Scrum Master can start the game",
+        });
       }
 
-      const game = await db.game.create({ data: { roomId: input.roomId, scrumMasterId: ctx.session.user.id } });
+      const game = await db.game.create({
+        data: { roomId: input.roomId, scrumMasterId: ctx.session.user.id },
+      });
 
-      const participants = await db.roomUser.findMany({ where: { roomId: input.roomId } });
+      const participants = await db.roomUser.findMany({
+        where: { roomId: input.roomId },
+      });
       await Promise.all(
         participants.map(async (p) => {
           const notif = await db.notification.create({
@@ -149,10 +202,13 @@ export const gameRouter = createTRPCRouter({
               data: { roomId: input.roomId, gameId: game.id },
             },
           });
-          await redisClient.publish(`user:${p.userId}:notifications`, JSON.stringify(notif));
+          await redisClient.publish(
+            `user:${p.userId}:notifications`,
+            JSON.stringify(notif),
+          );
           // Emit WebSocket notification
           notificationEmitter.emit(`notification:${p.userId}`, notif);
-        })
+        }),
       );
 
       // Emit in-room event
@@ -161,13 +217,20 @@ export const gameRouter = createTRPCRouter({
     }),
 
   castVote: protectedProcedure
-    .input(z.object({ roomId: z.string(), gameId: z.string(), value: z.number() }))
+    .input(
+      z.object({ roomId: z.string(), gameId: z.string(), value: z.number() }),
+    )
     .mutation(async ({ input, ctx }) => {
       const ru = await db.roomUser.findUnique({
-        where: { roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id } },
+        where: {
+          roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id },
+        },
       });
       if (!ru || ru.role !== Role.USER) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only players can vote" });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only players can vote",
+        });
       }
 
       const key = `game:${input.gameId}:votes`;
@@ -183,11 +246,13 @@ export const gameRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const game = await db.game.findUnique({ where: { id: input.gameId } });
       if (!game || game.scrumMasterId !== ctx.session.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only Scrum Master can end game" });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Scrum Master can end game",
+        });
       }
 
       const state = await redisClient.hgetall(`game:${input.gameId}:votes`);
-      await gameFinishQueue.add("game-finish", { gameId: input.gameId, state });
 
       // Emit end in-room event
       gameEndEmitter.emit(`end:${input.roomId}`, { gameId: input.gameId });
@@ -199,10 +264,11 @@ export const gameRouter = createTRPCRouter({
     .input(z.object({ roomId: z.string() }))
     .subscription(({ input }) =>
       observable<{ userId: number; value: number }>((emit) => {
-        const handler = (data: { userId: number; value: number }) => emit.next(data);
+        const handler = (data: { userId: number; value: number }) =>
+          emit.next(data);
         voteEmitter.on(`vote:${input.roomId}`, handler);
         return () => voteEmitter.off(`vote:${input.roomId}`, handler);
-      })
+      }),
     ),
 
   onGameEnd: protectedProcedure
@@ -212,15 +278,15 @@ export const gameRouter = createTRPCRouter({
         const handler = (data: { gameId: number }) => emit.next(data);
         gameEndEmitter.on(`end:${input.roomId}`, handler);
         return () => gameEndEmitter.off(`end:${input.roomId}`, handler);
-      })
+      }),
     ),
 
-  onNotification: protectedProcedure
-    .subscription(({ ctx }) =>
-      observable<Notification>((emit) => {
-        const handler = (notif: Notification) => emit.next(notif);
-        notificationEmitter.on(`notification:${ctx.session.user.id}`, handler);
-        return () => notificationEmitter.off(`notification:${ctx.session.user.id}`, handler);
-      })
-    ),
+  onNotification: protectedProcedure.subscription(({ ctx }) =>
+    observable<Notification>((emit) => {
+      const handler = (notif: Notification) => emit.next(notif);
+      notificationEmitter.on(`notification:${ctx.session.user.id}`, handler);
+      return () =>
+        notificationEmitter.off(`notification:${ctx.session.user.id}`, handler);
+    }),
+  ),
 });

@@ -10,6 +10,7 @@ type Item = {
   href: string;
   disabled?: boolean;
   optionsMenu?: React.ReactNode;
+  badge?: React.ReactNode;
 };
 
 export default function InPageSidebar({
@@ -22,25 +23,25 @@ export default function InPageSidebar({
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col justify-between  min-w-[250px] mr-[8px] h-full ">
-      <div className="flex flex-col gap-[4px] px-0 ">
+    <div className="mr-[8px] flex h-full min-w-[250px] flex-col justify-between">
+      <div className="flex flex-col gap-[4px] px-0">
         {items.map((item, index) => {
-          const { label, href, disabled = false, optionsMenu } = item;
+          const { label, href, disabled = false, optionsMenu, badge } = item;
           const fullHref = `${basePath}${href}`;
           const isActive =
             href === "/"
               ? pathname === basePath || pathname === `${basePath}/`
               : pathname === fullHref;
           return (
-              <SidebarLink
+            <SidebarLink
               key={index}
               href={fullHref}
               label={label}
               isActive={isActive}
               isDisabled={disabled}
               optionsMenu={optionsMenu}
+              badge={badge}
             />
-
           );
         })}
       </div>
@@ -53,16 +54,18 @@ function SidebarLink({
   label,
   isActive,
   isDisabled,
-  optionsMenu
+  optionsMenu,
+  badge,
 }: {
   href: string;
   label: string;
   isActive: boolean;
   isDisabled: boolean;
   optionsMenu?: React.ReactNode;
+  badge?: React.ReactNode;
 }) {
   return (
-    <div className="w-full flex items-center justify-between gap-x-10">
+    <div className="flex w-full items-center justify-between gap-x-0">
       <Link
         href={href}
         onClick={(e) => {
@@ -72,14 +75,20 @@ function SidebarLink({
           }
         }}
         className={cn(
-          "p-2 flex-1 w-full  py-3 rounded-md hover:bg-neutral-200 dark:hover:bg-accent text-sm text-secondary-foreground hover:text-foreground transition-colors",
+          "dark:hover:bg-accent text-secondary-foreground hover:text-foreground w-full flex-1 rounded-md p-2 py-3 text-sm transition-colors hover:bg-neutral-200",
           isActive &&
-            "bg-accent text-accent-foreground font-medium hover:text-foreground",
-          isDisabled && "text-gray-600 cursor-not-allowed hover:text-gray-700"
+            "bg-accent text-accent-foreground hover:text-foreground font-medium",
+          isDisabled && "cursor-not-allowed text-gray-600 hover:text-gray-700",
         )}
       >
-        <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            badge && "justify-between px-2",
+          )}
+        >
           <div className="leading-none">{label}</div>
+          {badge}
         </div>
       </Link>
       {optionsMenu}

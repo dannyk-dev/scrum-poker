@@ -1,45 +1,50 @@
-'use client'
+"use client";
 
-import ThemeSwitcher from '@/app/_components/theme-switcher';
-import { FloatingDock } from '@/components/ui/floating-dock';
-import { IconCards, IconHome, IconLogin, IconReportAnalytics, IconUserCircle } from '@tabler/icons-react';
-import React, { useMemo } from 'react'
-
+import ThemeSwitcher from "@/app/_components/theme-switcher";
+import { FloatingDock } from "@/components/ui/floating-dock";
+import {
+  IconCards,
+  IconHome,
+  IconLogin,
+  IconReportAnalytics,
+  IconUserCircle,
+} from "@tabler/icons-react";
+import React, { useMemo } from "react";
 
 const tabLinks = [
-    {
-      title: "Home",
-      icon: (
-        <IconHome className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "/",
-    },
+  {
+    title: "Home",
+    icon: (
+      <IconHome className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+    ),
+    href: "/",
+  },
 
-    {
-      title: "Scrum Poker",
-      icon: (
-        <IconCards className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "/scrum-room",
-    },
-    {
-      title: "Sprint Analytics",
-      icon: (
-        <IconReportAnalytics className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: '#'
-    },
-    {
-      title: "Theme",
-      component: <ThemeSwitcher />
-    }
-  ];
+  {
+    title: "Scrum Poker",
+    icon: (
+      <IconCards className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+    ),
+    href: "/scrum-room",
+  },
+  {
+    title: "Sprint Analytics",
+    icon: (
+      <IconReportAnalytics className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+    ),
+    href: "#",
+  },
+  {
+    title: "Theme",
+    component: <ThemeSwitcher />,
+  },
+];
 
 type Props = {
   isAuthorized?: boolean;
-}
+};
 
-const ProtectedSidebar =  ({ isAuthorized }: Props) => {
+const ProtectedSidebar = ({ isAuthorized }: Props) => {
   const screens = useMemo(() => {
     if (isAuthorized) {
       return [
@@ -66,13 +71,11 @@ const ProtectedSidebar =  ({ isAuthorized }: Props) => {
     }
   }, [isAuthorized]);
 
-
   return (
-    <div className="flex items-end justify-end  h-fit w-full fixed bottom-8 right-0 z-50">
+    <div className="fixed right-0 bottom-4 z-50 flex h-fit w-full items-end justify-end">
       <FloatingDock items={screens} />
     </div>
+  );
+};
 
-  )
-}
-
-export default ProtectedSidebar
+export default ProtectedSidebar;
