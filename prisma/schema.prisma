@@ -81,7 +81,7 @@ model Room {
 }
 
 model RoomUser {
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User    @relation(fields: [userId], references: [id])
   userId       String
   room         Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId       String
@@ -93,7 +93,7 @@ model RoomUser {
 
 model Invitation {
   id            String       @id @default(cuid())
-  room          Room      @relation(fields: [roomId], references: [id])
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId        String
   email         String
   token         String    @unique
@@ -117,7 +117,7 @@ model Notification {
 
 model Game {
   id            String       @id @default(cuid())
-  room          Room      @relation(fields: [roomId], references: [id])
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
   roomId        String @unique
   scrumMaster   User      @relation(fields: [scrumMasterId], references: [id])
   scrumMasterId String

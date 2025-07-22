@@ -1,6 +1,5 @@
 'use client'
 
-import { AutoComplete } from '@/components/ui/autocomplete'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
@@ -10,8 +9,8 @@ import { invitePlayerSchema, type TInvitePlayerSchema } from '@/lib/schemas/play
 import { api } from '@/trpc/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { IconSend } from '@tabler/icons-react'
-import type { Room, User } from 'prisma/interfaces'
-import React, { useMemo, useState } from 'react'
+import type { Room } from 'prisma/interfaces'
+import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -21,7 +20,7 @@ type Props = {
 
 const InvitePlayers = ({ room }: Props) => {
   const [open, setOpen] = useState(false);
-  const { mutate, isPending } = api.game.invitePlayers.useMutation();
+  const { mutate, isPending } = api.player.invitePlayers.useMutation();
 
   const form = useForm<TInvitePlayerSchema>({
     resolver: zodResolver(invitePlayerSchema),

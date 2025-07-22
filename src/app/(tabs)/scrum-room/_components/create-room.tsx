@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 const CreateRoom = () => {
   const [open, setOpen] = useState(false);
-  const { mutate, isPending } = api.game.createRoom.useMutation();
+  const { mutate, isPending } = api.room.createRoom.useMutation();
   const router = useRouter();
 
   const handleSubmit = useCallback(

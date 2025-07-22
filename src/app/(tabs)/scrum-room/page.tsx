@@ -7,7 +7,7 @@ import { trpc } from "@/trpc/server";
 
 const ScrumRoomPage = async () => {
   void await trpc.game.getPlayerEmails.prefetch();
-  const rooms = await trpc.game.getRooms();
+  const rooms = await trpc.room.getRooms();
 
   return (
     <>

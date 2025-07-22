@@ -6,7 +6,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -19,9 +18,6 @@ import { api } from "@/trpc/react";
 import {
   IconCircleMinus,
   IconDotsCircleHorizontal,
-  IconEdit,
-  IconEditCircle,
-  IconSend,
   IconTrash,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
@@ -30,6 +26,8 @@ import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import UpdateRoom from "./update-room";
 import InvitePlayers from "@/app/(tabs)/scrum-room/_components/invite-players";
+import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
+import { useSession } from "next-auth/react";
 
 type Props = {
   room: Room;
@@ -38,9 +36,11 @@ type Props = {
 const RoomActions = ({ room }: Props) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
+  const isScrumMaster = useIsScrumMaster(room, session);
 
   const { mutate: deleteRoom, isPending: isDeletingRoom } =
-    api.game.deleteRoom.useMutation();
+    api.room.deleteRoom.useMutation();
 
   const isPending = useMemo(() => {
     return isDeletingRoom;
@@ -91,10 +91,12 @@ const RoomActions = ({ room }: Props) => {
                 <IconCircleMinus />
                 Leave Room
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+              {isScrumMaster && (
+                <DropdownMenuItem variant="destructive" onClick={handleDelete}>
                 <IconTrash />
                 Delete (Permanent)
               </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

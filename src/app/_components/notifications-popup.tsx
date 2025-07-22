@@ -1,75 +1,193 @@
-'use client'
+"use client";
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import PopoverForm from '@/components/ui/popover-form'
-import { Spinner } from '@/components/ui/spinner'
-import { api } from '@/trpc/react'
-import { IconBellRinging } from '@tabler/icons-react'
-import React, { useState } from 'react'
-import { toast } from 'sonner'
+import AcceptInvite from "@/app/_components/accept-invite";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import PopoverForm from "@/components/ui/popover-form";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { api } from "@/trpc/react";
+import {
+  IconBellRinging,
+  IconChecks,
+  IconListCheck,
+  IconTrash,
+} from "@tabler/icons-react";
+import type { Notification } from "prisma/interfaces";
+import React, { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-type Props = {}
+type Props = {};
 
 const NotificationsPopup = (props: Props) => {
-  const [open, setOpen] = useState(false);
+  // const [open, setOpen] = useState(false);
   const utils = api.useUtils();
-  const { data: notifications = [], isLoading } = api.game.getNotifications.useQuery();
 
-  api.game.onNotification.useSubscription(undefined, {
-    onError(err) {
-      console.error(err);
+  const { data: notifications = [], isLoading } =
+    api.player.getNotifications.useQuery();
+  const { mutate, isPending: isPendingView } =
+    api.player.viewNotification.useMutation();
+  const {mutate: deleteNotification, isPending: isDeleting} = api.player.deleteNotification.useMutation();
+  const [lastEventId, setLastEventId] = useState<string | null>(null);
+
+  api.player.onNotification.useSubscription(
+    {
+      lastEventId,
     },
-    onData(newNotif) {
-      console.log('received notification')
-      toast(newNotif.data.message, {
-        action: (
-          <Button size='sm' variant='outline'>
-            View Invite
-          </Button>
-        )
-      })
-      utils.game.getNotifications.setData(undefined, (old) => {
-        if (!old) return [newNotif.data.message];
+    {
+      onError(err) {
+        console.error(err);
+      },
+      onData(newNotif) {
+        toast(newNotif.data.message, {
+          action: (
+            <div className="ml-auto">
+              <AcceptInvite inviteToken={newNotif.data!.data!.token} />
+            </div>
+          ),
+        });
+        setLastEventId(newNotif.id);
 
-        return [newNotif.data.message, ...old]
-      })
-    }
-  })
+        utils.player.getNotifications.setData(undefined, (old) => {
+          const list = old ?? [];
+          const exists = list.some((n) => n.id === newNotif.data.id);
+          if (exists) return list;
+          return [newNotif.data, ...list];
+        });
+      },
+    },
+  );
+
+  const viewNotification = useCallback(
+    (notification: Notification) => {
+      if (notification.read) return;
+
+      mutate(
+        { notificationId: notification.id },
+        {
+          async onSuccess() {
+            await utils.player.getNotifications.invalidate();
+          },
+        },
+      );
+    },
+    [mutate, utils.player.getNotifications],
+  );
+
+  const handleDeleteNotification = useCallback(
+    (notification: Notification) => {
+
+      if (isPendingView) return;
+
+      deleteNotification(
+        { notificationId: notification.id },
+        {
+          async onSuccess() {
+            await utils.player.getNotifications.invalidate();
+          },
+        },
+      );
+    },
+    [deleteNotification, isPendingView, utils.player.getNotifications],
+  );
+
+  const unreadNotifications = useMemo(() => {
+    if (notifications.length === 0) return 0;
+
+    const unread = notifications.filter((notif) => notif.read === false);
+    return unread.length;
+  }, [notifications])
 
   return (
-    <PopoverForm
-            showSuccess={false}
-            title="Notifications"
-            preferIcon
-            icon={(
-              <div className='relative'>
-                <IconBellRinging className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-                <Badge variant='default'  className='absolute px-2 py-0 -top-5 -right-5'>{notifications.length}</Badge>
-              </div>
-            )}
-            open={open}
-            setOpen={setOpen}
-            width="200px"
-            popupClass='-top-28'
-            height="175px"
-            showCloseButton={true}
-            openChild={
-              <div className="p-2">
-                {isLoading ? (
-                  <Spinner />
-                ) : (
-                  notifications.length > 0 ? notifications.map((notif) => (
-                    <p key={notif.id}>
-                      {notif.message}
-                    </p>
-                  )) : (
-                    <p>No data found</p>
-                  )
-                )}
-              </div>
-            } />
-  )
-}
+    <Dialog>
+      <DialogTrigger className="relative cursor-pointer" asChild>
+        <div className="">
+          <IconBellRinging className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+          {unreadNotifications > 0 && (
+            <Badge
+            variant="default"
+            className="absolute -top-5 -right-5 px-2 py-0"
+          >
+            {unreadNotifications}
+          </Badge>
+          )}
+        </div>
+      </DialogTrigger>
+      <DialogContent className="max-h-[500px] max-w-full min-w-[550px] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex w-full items-center justify-between">
+            My Notifications
 
-export default NotificationsPopup
+            {unreadNotifications > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="secondary" size="sm">
+                    <IconChecks />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Mark all as read</TooltipContent>
+              </Tooltip>
+          )}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isLoading ? (
+            <Spinner />
+          ) : notifications.length > 0 ? (
+            notifications.map((notif) => (
+              <Card
+                key={notif.id}
+                className={cn(!notif.read && "bg-secondary")}
+                onMouseOver={() => viewNotification(notif)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex w-full items-center justify-between">
+                    {notif.message}
+                  </CardTitle>
+                  <CardDescription className="mt-2 flex flex-col gap-1">
+                    <Badge variant="outline">{notif?.data!.roomName}</Badge>
+                    <p>From: {notif?.data!.inviteBy}</p>
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter className="flex w-full items-center">
+                  {notif.type === "Invitation" && (
+                    <div className="flex items-center gap-x-2">
+                      <AcceptInvite inviteToken={notif!.data!.token} />
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteNotification(notif)} isLoading={isDeleting}>
+                        <IconTrash />
+                      </Button>
+                    </div>
+                  )}
+                </CardFooter>
+              </Card>
+            ))
+          ) : (
+            <p>No notifications found</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default NotificationsPopup;

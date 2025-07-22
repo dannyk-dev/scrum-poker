@@ -28,7 +28,7 @@ const ComboboxUsers = ({ value, onValueChange }: Props) => {
   const id = useId()
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const { data, isLoading } = api.game.getPlayerEmails.useQuery(undefined, {
+  const { data, isLoading } = api.player.getPlayerEmails.useQuery(undefined, {
     enabled: open
   });
 
@@ -123,7 +123,7 @@ const ComboboxUsers = ({ value, onValueChange }: Props) => {
             </div>
           ) : (
             <Command>
-            <CommandInput placeholder='Search framework...' />
+            <CommandInput placeholder='Search users...' />
             <CommandList>
               <CommandEmpty>No user found.</CommandEmpty>
               <CommandGroup>

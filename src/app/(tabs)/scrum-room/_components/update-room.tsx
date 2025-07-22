@@ -17,7 +17,7 @@ type Props = {
 
 const UpdateRoom = ({ room }: Props) => {
   const [open, setOpen] = useState(false);
-  const { mutate, isPending } = api.game.updateRoom.useMutation();
+  const { mutate, isPending } = api.room.updateRoom.useMutation();
   const router = useRouter();
 
   const handleSubmit = useCallback(

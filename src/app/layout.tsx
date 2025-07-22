@@ -8,6 +8,7 @@ import ProtectedSidebar from "@/app/_components/protected-sidebar";
 import { auth } from "@/server/auth";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -29,12 +30,14 @@ export default async function RootLayout({
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-background antialiased overflow-hidden">
         <ThemeProvider attribute='class' defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <TRPCReactProvider>
+          <SessionProvider session={session}>
+            <TRPCReactProvider>
           {children}
 
           <ProtectedSidebar isAuthorized={Boolean(session)} />
           <Toaster closeButton position="bottom-right" expand />
         </TRPCReactProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>
