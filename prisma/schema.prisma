@@ -122,6 +122,7 @@ model Game {
   scrumMaster   User      @relation(fields: [scrumMasterId], references: [id])
   scrumMasterId String
   createdAt     DateTime  @default(now())
+  endedAt       DateTime?
   votes         Vote[]
 }
 

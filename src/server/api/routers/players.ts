@@ -11,7 +11,6 @@ import { sleep } from "@/lib/utils";
 import type { Notification } from "prisma/interfaces";
 
 const notificationEmitter = new EventEmitter();
-const roomUserEmitter = new EventEmitter();
 
 export const playerRouter = createTRPCRouter({
   getNotifications: protectedProcedure.query(({ ctx }) => {
@@ -104,6 +103,8 @@ export const playerRouter = createTRPCRouter({
         });
       }
 
+      const pub = getRedisClient();
+
       const roomUser = await db.roomUser.create({
         data: {
           roomId: invite.roomId,
@@ -120,9 +121,13 @@ export const playerRouter = createTRPCRouter({
         data: { accepted: true, acceptedAt: new Date() },
       });
 
-      roomUserEmitter.emit(
-        `accepted:${roomUser.userId}:${roomUser.roomId}`,
-        roomUser,
+      await pub.publish(
+        `room:${roomUser.roomId}:user:join`,
+        JSON.stringify({
+          userId: ctx.session.user.id,
+          name: ctx.session.user.name ?? "Someone",
+          ts: Date.now(),
+        }),
       );
 
       revalidatePath("/scrum-room");
@@ -145,11 +150,11 @@ export const playerRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const notif = await ctx.db.notification.delete({
         where: {
-          id: input.notificationId
-        }
+          id: input.notificationId,
+        },
       });
 
-      return notif
+      return notif;
     }),
   onNotification: protectedProcedure
     .input(z.object({ lastEventId: z.string().nullish() }).nullish())
@@ -177,8 +182,7 @@ export const playerRouter = createTRPCRouter({
       const onMessage = (_chan: string, raw: string) => {
         try {
           queue.push(JSON.parse(raw) as Notification);
-        } catch {
-        }
+        } catch {}
       };
       sub.on("message", onMessage);
 
@@ -187,10 +191,101 @@ export const playerRouter = createTRPCRouter({
           const notif = queue.shift()!;
           yield tracked(notif.id, notif);
         }
+
         await sleep(1_000);
       }
 
       sub.off("message", onMessage);
       await sub.unsubscribe(channel).finally(() => sub.disconnect());
+    }),
+  onUserJoined: protectedProcedure
+    .input(
+      z
+        .object({ roomId: z.string(), lastEventId: z.string().nullish() })
+        .nullish(),
+    )
+    .subscription(async function* ({ ctx, input, signal }) {
+      const roomId = input?.roomId;
+      let lastId = input?.lastEventId ?? null;
+
+      /* ── 1) Catch‑up (joins only) ─────────────────────────────── */
+      if (lastId) {
+        const since = new Date(Number(lastId));
+        if (!Number.isFinite(since.valueOf())) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid lastEventId",
+          });
+        }
+
+        const pastJoins = await ctx.db.roomUser.findMany({
+          where: { roomId, joinedAt: { gt: since } },
+          orderBy: { joinedAt: "asc" },
+          include: { user: true },
+        });
+
+        for (const ru of pastJoins) {
+          const id = ru.joinedAt.getTime().toString();
+          yield tracked(id, {
+            userId: ru.userId,
+            name: ru.user.name ?? "Someone",
+            kind: "join" as const,
+            lastId: id
+          });
+          lastId = id;
+        }
+      }
+
+      /* ── 2) Live stream via Redis (join + leave) ──────────────── */
+      const joinChan = `room:${roomId}:user:join`;
+      const leaveChan = `room:${roomId}:user:leave`;
+      const sub = getRedisClient();
+      await sub.subscribe(joinChan);
+      await sub.subscribe(leaveChan);
+
+      type Live = {
+        userId: string;
+        name: string;
+        ts: number;
+        kind: "join" | "leave";
+      };
+      const queue: Live[] = [];
+
+      const onMsg = (chan: string, raw: string) => {
+        try {
+          const base = JSON.parse(raw) as {
+            userId: string;
+            name: string;
+            ts: number;
+          };
+          const kind = chan.endsWith("leave") ? "leave" : "join";
+          if (base.ts.toString() !== lastId) queue.push({ ...base, kind });
+        } catch {
+          /* ignore bad payload */
+        }
+      };
+      sub.on("message", onMsg);
+
+      try {
+        while (!signal?.aborted) {
+          while (queue.length) {
+            const evt = queue.shift()!;
+            const id = evt.ts.toString();
+            yield tracked(id, {
+              userId: evt.userId,
+              name: evt.name,
+              kind: evt.kind,
+              lastId: id
+            });
+            lastId = id;
+          }
+          await sleep(100); // small idle delay
+        }
+      } finally {
+        sub.off("message", onMsg);
+        await sub.unsubscribe(joinChan);
+        await sub.unsubscribe(leaveChan);
+        sub.disconnect();
+      }
     }),
 });

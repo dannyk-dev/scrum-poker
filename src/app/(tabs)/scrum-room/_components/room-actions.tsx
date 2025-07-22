@@ -41,10 +41,11 @@ const RoomActions = ({ room }: Props) => {
 
   const { mutate: deleteRoom, isPending: isDeletingRoom } =
     api.room.deleteRoom.useMutation();
+  const { mutate: leaveRoom, isPending: isLeavingRoom } = api.room.leaveRoom.useMutation();
 
   const isPending = useMemo(() => {
-    return isDeletingRoom;
-  }, [isDeletingRoom]);
+    return isDeletingRoom || isLeavingRoom;
+  }, [isDeletingRoom, isLeavingRoom]);
 
   const handleDelete = useCallback(() => {
     deleteRoom(
@@ -64,6 +65,17 @@ const RoomActions = ({ room }: Props) => {
     );
   }, [deleteRoom, room.id, router]);
 
+  const handleLeaveRoom = useCallback(() => {
+    leaveRoom({
+      roomId: room.id
+    }, {
+      onSuccess() {
+        toast.info(`left room ${room.name}`)
+        router.refresh();
+      }
+    });
+  }, [])
+
   return (
     <Tooltip>
       <TooltipTrigger>
@@ -81,13 +93,13 @@ const RoomActions = ({ room }: Props) => {
           <DropdownMenuContent>
             <DropdownMenuGroup>
               <UpdateRoom room={room} />
-              <InvitePlayers room={room} />
+              <InvitePlayers room={room} isDropdown />
               {/* <DropdownMenuItem>
                 <IconSend />
                 Invite Players
               </DropdownMenuItem> */}
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive">
+              <DropdownMenuItem variant="destructive" onClick={handleLeaveRoom}>
                 <IconCircleMinus />
                 Leave Room
               </DropdownMenuItem>

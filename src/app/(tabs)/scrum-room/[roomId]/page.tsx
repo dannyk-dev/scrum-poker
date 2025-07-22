@@ -1,24 +1,26 @@
-import { CardHeader, CardTitle } from '@/components/ui/card';
+import GameSidebar from '@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { trpc } from "@/trpc/server";
 import React from "react";
 
 type Props = {
-  searchParams: Promise<{
+  params: Promise<{
     roomId: string;
   }>
 }
 
-const ScrumRoomGameRoom = async ({ searchParams }: Props) => {
-
-
+const ScrumRoomGameRoom = async ({ params }: Props) => {
+  const { roomId } = await params;
 
   return (
     <>
       <CardHeader>
         <CardTitle>
           Game Room
-          {(await searchParams).roomId}
         </CardTitle>
+        <CardContent className='px-0 mt-6'>
+          <GameSidebar roomId={roomId} />
+        </CardContent>
       </CardHeader>
     </>
   );

@@ -19,9 +19,9 @@ const AcceptInvite = ({ inviteToken }: Props) => {
     mutate({
       token: inviteToken
     }, {
-      onSuccess() {
+      onSuccess(data) {
         toast('Room joined successfully');
-        router.refresh();
+        router.push(`scrum-room/${data.roomUser.roomId}`);
       },
       onError(){
         toast('Failed to join room.')

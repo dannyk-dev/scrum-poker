@@ -99,6 +99,7 @@ export interface Game {
   scrumMaster?: User;
   scrumMasterId: string;
   createdAt: Date;
+  endedAt: Date | null;
   votes?: Vote[];
 }
 
