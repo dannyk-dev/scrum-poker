@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
 import { getRedisClient } from "@/server/redis";
@@ -8,22 +10,54 @@ import z from "zod";
 import crypto from "crypto";
 import EventEmitter from "events";
 import { sleep } from "@/lib/utils";
-import type { Notification } from "prisma/interfaces";
+import type { Invitation, Notification } from "prisma/interfaces";
 
 const notificationEmitter = new EventEmitter();
 
 export const playerRouter = createTRPCRouter({
-  getNotifications: protectedProcedure.query(({ ctx }) => {
-    return ctx.db.notification.findMany({
-      where: { userId: ctx.session.user.id },
+  getNotifications: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id;
+
+    /* ①  Fetch all notifications for this user */
+    const notifs = await ctx.db.notification.findMany({
+      where: { userId },
       orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          include: {
-            invitations: true,
-          },
-        },
-      },
+    });
+
+    const tokens = notifs
+      .filter((n) => n.type === "Invitation")
+      .map((n) => (n.data as any)?.token)
+      .filter(Boolean) as string[];
+
+    /* ③  Grab those invitations in ONE query */
+    let inviteMap: Record<
+      string,
+      { accepted: boolean; acceptedAt: Date | null }
+    > = {};
+    if (tokens.length) {
+      const invites = await ctx.db.invitation.findMany({
+        where: { token: { in: tokens } },
+        select: { token: true, accepted: true, acceptedAt: true },
+      });
+      inviteMap = Object.fromEntries(
+        invites.map((i) => [
+          i.token,
+          { accepted: i.accepted, acceptedAt: i.acceptedAt },
+        ]),
+      );
+    }
+
+    /* ④  Enrich and return */
+    return notifs.map((n) => {
+      if (n.type !== "Invitation") return n;
+
+      const token = (n.data as any)?.token;
+      const extra = inviteMap[token] ?? { accepted: false, acceptedAt: null };
+
+      return {
+        ...n,
+        data: { ...(n.data as object), ...extra },
+      };
     });
   }),
   getPlayerEmails: protectedProcedure.query(async ({ ctx }) => {
@@ -99,11 +133,23 @@ export const playerRouter = createTRPCRouter({
       if (!invite || invite.accepted) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Invalid or already used token",
+          message: "Invite has already been accepted.",
         });
       }
 
       const pub = getRedisClient();
+      const roomExists = await ctx.db.room.findUnique({
+        where: {
+          id: invite.roomId,
+        },
+      });
+
+      if (!roomExists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Room no longer exists",
+        });
+      }
 
       const roomUser = await db.roomUser.create({
         data: {
@@ -158,45 +204,104 @@ export const playerRouter = createTRPCRouter({
     }),
   onNotification: protectedProcedure
     .input(z.object({ lastEventId: z.string().nullish() }).nullish())
-    .subscription(async function* ({ ctx, signal, input }) {
-      const channel = `user:${ctx.session.user.id}:notifications`;
+    .subscription(async function* ({ ctx, input, signal }) {
+      const userId = ctx.session.user.id;
+      let lastId = input?.lastEventId ?? null;
 
-      const lastEventId = input?.lastEventId ?? null;
-      const catchUp = await ctx.db.notification.findMany({
-        where: {
-          userId: ctx.session.user.id,
-          read: false,
-          ...(lastEventId && { id: { gt: lastEventId } }),
-        },
+      const enrichBatch = async (rows: Notification[]) => {
+        const tokens = rows
+          .filter((n) => n.type === "Invitation")
+          .map((n) => (n.data as any)?.token)
+          .filter(Boolean) as string[];
+
+        let inviteMap: Record<
+          string,
+          { accepted: boolean; acceptedAt: Date | null }
+        > = {};
+        if (tokens.length) {
+          const invites = await ctx.db.invitation.findMany({
+            where: { token: { in: tokens } },
+            select: { token: true, accepted: true, acceptedAt: true },
+          });
+          inviteMap = Object.fromEntries(
+            invites.map((i) => [
+              i.token,
+              { accepted: i.accepted, acceptedAt: i.acceptedAt },
+            ]),
+          );
+        }
+
+        return rows.map((n) => {
+          if (n.type !== "Invitation") return n;
+          const token = (n.data as any)?.token;
+          const extra = inviteMap[token] ?? {
+            accepted: false,
+            acceptedAt: null,
+          };
+          return { ...n, data: { ...(n.data as object), ...extra } };
+        });
+      };
+
+      const baseWhere = { userId, read: false } as any;
+      if (lastId) {
+        const since = new Date(Number(lastId));
+        if (!Number.isFinite(since.valueOf())) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid lastEventId",
+          });
+        }
+        baseWhere.createdAt = { gt: since };
+      }
+
+      const backlogRaw = await ctx.db.notification.findMany({
+        where: baseWhere,
         orderBy: { createdAt: "asc" },
       });
 
-      for (const n of catchUp) {
-        yield tracked(n.id, n);
+      const backlog = await enrichBatch(backlogRaw);
+
+      for (const n of backlog) {
+        const id = n.createdAt.getTime().toString();
+        yield tracked(id, n);
+        lastId = id;
       }
 
+      /* ╔════════════ 2) LIVE STREAM VIA REDIS ════════════════════════════╗ */
       const sub = getRedisClient();
+      const channel = `user:${userId}:notifications`;
       await sub.subscribe(channel);
 
-      const queue: Notification[] = [];
-      const onMessage = (_chan: string, raw: string) => {
+      type LiveRow = Notification & { ts: number };
+      const queue: LiveRow[] = [];
+
+      const onMsg = (_c: string, raw: string) => {
         try {
-          queue.push(JSON.parse(raw) as Notification);
-        } catch {}
+          const n = JSON.parse(raw) as Notification;
+          queue.push({ ...n, ts: Date.now() });
+        } catch {} // ignore malformed
       };
-      sub.on("message", onMessage);
+      sub.on("message", onMsg);
 
-      while (!signal?.aborted) {
-        while (queue.length) {
-          const notif = queue.shift()!;
-          yield tracked(notif.id, notif);
+      try {
+        while (!signal?.aborted) {
+          if (queue.length) {
+            const batch: LiveRow[] = queue.splice(0, queue.length);
+            const enriched = await enrichBatch(batch);
+            for (const n of enriched) {
+              const id = (n as LiveRow).ts.toString();
+              if (id !== lastId) {
+                yield tracked(id, n);
+                lastId = id;
+              }
+            }
+          }
+          await sleep(100); // lighter latency
         }
-
-        await sleep(1_000);
+      } finally {
+        sub.off("message", onMsg);
+        await sub.unsubscribe(channel).finally(() => sub.disconnect());
       }
-
-      sub.off("message", onMessage);
-      await sub.unsubscribe(channel).finally(() => sub.disconnect());
     }),
   onUserJoined: protectedProcedure
     .input(
@@ -208,7 +313,6 @@ export const playerRouter = createTRPCRouter({
       const roomId = input?.roomId;
       let lastId = input?.lastEventId ?? null;
 
-      /* ── 1) Catch‑up (joins only) ─────────────────────────────── */
       if (lastId) {
         const since = new Date(Number(lastId));
         if (!Number.isFinite(since.valueOf())) {
@@ -230,13 +334,11 @@ export const playerRouter = createTRPCRouter({
             userId: ru.userId,
             name: ru.user.name ?? "Someone",
             kind: "join" as const,
-            lastId: id
+            lastId: id,
           });
           lastId = id;
         }
       }
-
-      /* ── 2) Live stream via Redis (join + leave) ──────────────── */
       const joinChan = `room:${roomId}:user:join`;
       const leaveChan = `room:${roomId}:user:leave`;
       const sub = getRedisClient();
@@ -275,7 +377,7 @@ export const playerRouter = createTRPCRouter({
               userId: evt.userId,
               name: evt.name,
               kind: evt.kind,
-              lastId: id
+              lastId: id,
             });
             lastId = id;
           }

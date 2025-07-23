@@ -9,14 +9,8 @@ import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Spinner } from "@/components/ui/spinner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { IconArrowBackUp, IconSend } from "@tabler/icons-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { IconArrowBackUp } from "@tabler/icons-react";
 import InvitePlayers from "@/app/(tabs)/scrum-room/_components/invite-players";
 import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
 import { useSession } from "next-auth/react";
@@ -33,8 +27,8 @@ export function formatJoinTime(date: Date): string {
     date.getFullYear() === today.getFullYear();
 
   return isSameDay
-    ? format(date, "HH:mm") // e.g. 14:07
-    : format(date, "d MMM yyyy HH:mm"); // e.g. 15 Jul 2025 14:07
+    ? format(date, "HH:mm")
+    : format(date, "d MMM yyyy HH:mm");
 }
 
 const GameSidebar = ({ roomId }: Props) => {
@@ -119,12 +113,12 @@ const GameSidebar = ({ roomId }: Props) => {
               >
                 <div className="flex items-center gap-x-2">
                   <Badge variant="default"></Badge>
-                  {item.user.name}
+                  <span className="text-sm" >{item.user.name}</span>
                 </div>
 
                 <div className="flex items-center gap-x-2">
                   {item.role === 'SCRUM_MASTER' && (
-                    <Badge variant="default">Scrum Master</Badge>
+                    <Badge className="text-sm" variant="default">Scrum Master</Badge>
                   )}
                   <span className="text-muted-foreground text-xs">
                   {formatJoinTime(new Date(item.joinedAt))}

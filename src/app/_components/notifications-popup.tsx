@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -18,7 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import PopoverForm from "@/components/ui/popover-form";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
@@ -27,56 +25,22 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
-import {
-  IconBellRinging,
-  IconChecks,
-  IconListCheck,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconBellRinging, IconChecks, IconTrash } from "@tabler/icons-react";
 import type { Notification } from "prisma/interfaces";
 import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-type Props = {};
-
-const NotificationsPopup = (props: Props) => {
-  // const [open, setOpen] = useState(false);
+const NotificationsPopup = () => {
+  const [open, setOpen] = useState(false);
   const utils = api.useUtils();
 
   const { data: notifications = [], isLoading } =
     api.player.getNotifications.useQuery();
   const { mutate, isPending: isPendingView } =
     api.player.viewNotification.useMutation();
-  const {mutate: deleteNotification, isPending: isDeleting} = api.player.deleteNotification.useMutation();
+  const { mutate: deleteNotification, isPending: isDeleting } =
+    api.player.deleteNotification.useMutation();
   const [lastEventId, setLastEventId] = useState<string | null>(null);
-
-  api.player.onNotification.useSubscription(
-    {
-      lastEventId,
-    },
-    {
-      onError(err) {
-        console.error(err);
-      },
-      onData(newNotif) {
-        toast(newNotif.data.message, {
-          action: (
-            <div className="ml-auto">
-              <AcceptInvite inviteToken={newNotif.data!.data!.token} />
-            </div>
-          ),
-        });
-        setLastEventId(newNotif.id);
-
-        utils.player.getNotifications.setData(undefined, (old) => {
-          const list = old ?? [];
-          const exists = list.some((n) => n.id === newNotif.data.id);
-          if (exists) return list;
-          return [newNotif.data, ...list];
-        });
-      },
-    },
-  );
 
   const viewNotification = useCallback(
     (notification: Notification) => {
@@ -94,9 +58,47 @@ const NotificationsPopup = (props: Props) => {
     [mutate, utils.player.getNotifications],
   );
 
+  api.player.onNotification.useSubscription(
+    {
+      lastEventId,
+    },
+    {
+      onError(err) {
+        console.error(err);
+      },
+      onData(newNotif) {
+        toast(newNotif.data.message, {
+          onDismiss() {
+            viewNotification(newNotif.data);
+          },
+          action: (
+            <div className="ml-auto">
+              <AcceptInvite
+                inviteToken={newNotif.data!.data!.token}
+                inviteStatus={
+                  newNotif.data.data as {
+                    accepted: boolean;
+                    acceptedAt: Date | null;
+                  }
+                }
+              />
+            </div>
+          ),
+        });
+        setLastEventId(newNotif.id);
+
+        utils.player.getNotifications.setData(undefined, (old) => {
+          const list = old ?? [];
+          const exists = list.some((n) => n.id === newNotif.data.id);
+          if (exists) return list;
+          return [newNotif.data, ...list];
+        });
+      },
+    },
+  );
+
   const handleDeleteNotification = useCallback(
     (notification: Notification) => {
-
       if (isPendingView) return;
 
       deleteNotification(
@@ -116,20 +118,20 @@ const NotificationsPopup = (props: Props) => {
 
     const unread = notifications.filter((notif) => notif.read === false);
     return unread.length;
-  }, [notifications])
+  }, [notifications]);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger className="relative cursor-pointer" asChild>
         <div className="">
           <IconBellRinging className="h-full w-full text-neutral-500 dark:text-neutral-300" />
           {unreadNotifications > 0 && (
             <Badge
-            variant="default"
-            className="absolute -top-5 -right-5 px-2 py-0"
-          >
-            {unreadNotifications}
-          </Badge>
+              variant="default"
+              className="absolute -top-5 -right-5 px-2 py-0"
+            >
+              {unreadNotifications}
+            </Badge>
           )}
         </div>
       </DialogTrigger>
@@ -137,7 +139,6 @@ const NotificationsPopup = (props: Props) => {
         <DialogHeader>
           <DialogTitle className="flex w-full items-center justify-between">
             My Notifications
-
             {unreadNotifications > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -147,7 +148,7 @@ const NotificationsPopup = (props: Props) => {
                 </TooltipTrigger>
                 <TooltipContent side="left">Mark all as read</TooltipContent>
               </Tooltip>
-          )}
+            )}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
@@ -158,7 +159,7 @@ const NotificationsPopup = (props: Props) => {
               <Card
                 key={notif.id}
                 className={cn(!notif.read && "bg-secondary")}
-                onMouseOver={() => viewNotification(notif)}
+                onMouseEnter={() => viewNotification(notif)}
               >
                 <CardHeader>
                   <CardTitle className="flex w-full items-center justify-between">
@@ -172,8 +173,22 @@ const NotificationsPopup = (props: Props) => {
                 <CardFooter className="flex w-full items-center">
                   {notif.type === "Invitation" && (
                     <div className="flex items-center gap-x-2">
-                      <AcceptInvite inviteToken={notif!.data!.token} />
-                      <Button variant="destructive" size="sm" onClick={() => handleDeleteNotification(notif)} isLoading={isDeleting}>
+                      <AcceptInvite
+                        inviteToken={notif!.data!.token}
+                        onAccept={() => setOpen(false)}
+                        inviteStatus={
+                          notif.data as {
+                            accepted: boolean;
+                            acceptedAt: Date | null;
+                          }
+                        }
+                      />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteNotification(notif)}
+                        isLoading={isDeleting}
+                      >
                         <IconTrash />
                       </Button>
                     </div>
