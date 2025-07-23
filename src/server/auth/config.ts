@@ -32,6 +32,8 @@ declare module "next-auth" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authConfig = {
+  trustHost: true,
+  secret: process.env.AUTH_SECRET!,
   providers: [
     Atlassian({
       clientId: process.env.ATLASSIAN_CLIENT_ID!,
@@ -58,7 +60,10 @@ export const authConfig = {
      */
   ],
   adapter: PrismaAdapter(db),
+
+
   callbacks: {
+
     // redirect: ({ url, baseUrl }) => {
     //   // Allows relative callback URLs
     //   if (url.startsWith("/")) return `${baseUrl}${url}`;
@@ -67,7 +72,9 @@ export const authConfig = {
     //   return baseUrl;
 
     // },
+
     session: ({ session, user }) => ({
+
       ...session,
       user: {
         ...session.user,
