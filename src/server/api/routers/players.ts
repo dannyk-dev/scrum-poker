@@ -18,7 +18,6 @@ export const playerRouter = createTRPCRouter({
   getNotifications: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
 
-    /* ①  Fetch all notifications for this user */
     const notifs = await ctx.db.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -29,7 +28,6 @@ export const playerRouter = createTRPCRouter({
       .map((n) => (n.data as any)?.token)
       .filter(Boolean) as string[];
 
-    /* ③  Grab those invitations in ONE query */
     let inviteMap: Record<
       string,
       { accepted: boolean; acceptedAt: Date | null }

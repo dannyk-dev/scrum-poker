@@ -101,7 +101,7 @@ const GameSidebar = ({ roomId }: Props) => {
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-full">
         {isLoading ? (
           <Spinner />
         ) : (

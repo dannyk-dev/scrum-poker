@@ -1,3 +1,5 @@
+import GameBoard from '@/app/(tabs)/scrum-room/[roomId]/_components/game-board';
+import GameControls from '@/app/(tabs)/scrum-room/[roomId]/_components/game-controls';
 import GameSidebar from '@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { trpc } from "@/trpc/server";
@@ -18,10 +20,15 @@ const ScrumRoomGameRoom = async ({ params }: Props) => {
         <CardTitle>
           Game Room
         </CardTitle>
-        <CardContent className='px-0 mt-6'>
-          <GameSidebar roomId={roomId} />
-        </CardContent>
       </CardHeader>
+      <CardContent className=' py-4 h-full flex items-center'>
+          <GameSidebar roomId={roomId} />
+
+          <div className="flex flex-col justify-between h-full w-full">
+            <GameBoard />
+            <GameControls />
+          </div>
+      </CardContent>
     </>
   );
 };

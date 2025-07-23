@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: nextjs-app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Populate from .env file OR override here
+      - DATABASE_URL=mysql://root:${MYSQL_PASSWORD}@db:3306/scrum-poker
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_ATLASSIAN_ID=${AUTH_ATLASSIAN_ID}
+      - AUTH_ATLASSIAN_SECRET=${AUTH_ATLASSIAN_SECRET}
+      - ATLASSIAN_API_TOKEN=${ATLASSIAN_API_TOKEN}
+      - NODE_ENV=development
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+
+  db:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-root}
+      MYSQL_DATABASE: scrum-poker
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: redis
+    command: >
+      redis-server --requirepass ${REDIS_PASSWORD:-root!}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  mysql_data:
+  redis_data:

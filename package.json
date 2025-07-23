@@ -10,16 +10,14 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "dev:base": "next dev --turbo",
-    "dev:ws": "cross-env PORT=3001 tsx watch src/server/ws.ts --tsconfig tsconfig.server.json ",
-    "dev": "concurrently \"npm run dev:base\" \"npm run dev:ws\"",
+    "dev": "next dev --turbo",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "prisma generate",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
-    "start": "next start",
+    "start": "next start -p $PORT",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
