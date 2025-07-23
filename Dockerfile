@@ -1,8 +1,23 @@
+# top of Dockerfile – before the builder stage
+ARG AUTH_SECRET=dummy
+ARG AUTH_ATLASSIAN_ID=dummy
+ARG AUTH_ATLASSIAN_SECRET=dummy
+ARG ATLASSIAN_API_TOKEN=dummy
+ARG DATABASE_URL=mysql://root:root@localhost:3306/dummy
+ARG REDIS_URL=redis://:root@localhost:6379/0
+
 ###############################################################################
 #                       ─── Build (Stage 1) ─────────────────                 #
 ###############################################################################
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+ENV AUTH_SECRET          $AUTH_SECRET
+ENV AUTH_ATLASSIAN_ID    $AUTH_ATLASSIAN_ID
+ENV AUTH_ATLASSIAN_SECRET $AUTH_ATLASSIAN_SECRET
+ENV ATLASSIAN_API_TOKEN  $ATLASSIAN_API_TOKEN
+ENV DATABASE_URL         $DATABASE_URL
+ENV REDIS_URL            $REDIS_URL
 
 RUN apk add --no-cache openssh
 
