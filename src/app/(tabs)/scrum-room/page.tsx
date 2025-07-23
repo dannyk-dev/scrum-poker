@@ -6,7 +6,7 @@ import RoomsSidebar from "./_components/rooms-sidebar";
 import { trpc } from "@/trpc/server";
 
 const ScrumRoomPage = async () => {
-  void await trpc.game.getPlayerEmails.prefetch();
+  void await trpc.player.getPlayerEmails.prefetch();
   const rooms = await trpc.room.getRooms();
 
   return (
