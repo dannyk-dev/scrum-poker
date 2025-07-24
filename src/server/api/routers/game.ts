@@ -66,18 +66,14 @@ async function* roomListener(roomId: string, signal: AbortSignal) {
   }
 }
 
-/* ------------------------------ DB helpers ----------------------------- */
 const getActiveGameWithVotes = (roomId: string) =>
   db.game.findFirst({
     where: { roomId, endedAt: null },
     include: { votes: { select: { userId: true, value: true } } },
   });
 
-/* --------------------------------------------------------------------------
-  Router
--------------------------------------------------------------------------- */
+
 export const gameRouter = createTRPCRouter({
-  /* ========== Query: snapshot for initial paint ======================= */
   snapshot: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .query(async ({ input }) => {
@@ -87,7 +83,6 @@ export const gameRouter = createTRPCRouter({
         : ({ gameId: null, votes: [] } as const);
     }),
 
-  /* ========== Mutations (unchanged, still publish Redis events) ======= */
   startGame: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -128,11 +123,14 @@ export const gameRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       const ru = await ctx.db.roomUser.findUnique({
-        where: { roomId_userId: {roomId: input.roomId, userId: ctx.session.user.id} }
+        where: { roomId_userId: {roomId: input.roomId, userId: ctx.session.user.id} },
+        include: {
+          user: true
+        }
       });
 
       if (!ru || ru.role === Role.SCRUM_MASTER)
-        throw new TRPCError({ code: "FORBIDDEN" });
+        throw new TRPCError({ code: "FORBIDDEN", message: "Scrum Master cannot vote" });
 
 
       await db.vote.upsert({
@@ -143,7 +141,7 @@ export const gameRouter = createTRPCRouter({
 
       await getRedisClient().publish(
         CH.vote(input.roomId),
-        JSON.stringify({ userId, value: input.value }),
+        JSON.stringify({ userId, value: input.value, username: ru.user.name }),
       );
       return { ok: true } as const;
     }),
@@ -193,12 +191,10 @@ export const gameRouter = createTRPCRouter({
       return { ok: true } as const;
     }),
 
-  /* ========== ONE subscription ======================================= */
   roomEvents: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .subscription(async function* ({ input, signal }) {
-      for await (const ev of roomListener(input.roomId, signal)) {
-        // create a cursor from redis timestamp or Date.now()
+      for await (const ev of roomListener(input.roomId, signal!)) {
         const id = "ts" + Date.now().toString(36);
         yield tracked(id, ev);
       }

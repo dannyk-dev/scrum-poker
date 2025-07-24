@@ -9,6 +9,7 @@ import { auth } from "@/server/auth";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -25,6 +26,10 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await auth();
+
+  if (!session?.user) {
+    redirect('/api/auth/signin')
+  }
 
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>

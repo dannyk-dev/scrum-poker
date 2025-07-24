@@ -17,19 +17,15 @@ export default function GameBoard({ roomId }: { roomId: string }) {
   const { data: session } = useSession();
   const uid = session?.user.id ?? "";
 
-  /* ---------- room / users (static) ---------------------------------- */
   const { data: room, isLoading: roomLoading } = api.room.getRoomById.useQuery({ roomId });
-  const isScrumMaster = useIsScrumMaster(room, session);
+  const isScrumMaster = useIsScrumMaster(room!, session);
 
-  /* ---------- snapshot ---------------------------------------------- */
   const { data: snap, isLoading: snapLoading } = api.game.snapshot.useQuery({ roomId });
 
-  /* ---------- local state ------------------------------------------- */
   const [gameId, setGameId] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, number>>({});
-  const [results, setResults] = useState<{ userId: string; value: number }[] | null>(null);
+  const [results, setResults] = useState<{ userId: string; value: number; username: string; }[] | null>(null);
 
-  // hydrate from snapshot once
   useEffect(() => {
     if (!snap) return;
     setGameId(snap.gameId);
@@ -37,7 +33,6 @@ export default function GameBoard({ roomId }: { roomId: string }) {
     setResults(null);
   }, [snap]);
 
-  /* ---------- one subscription -------------------------------------- */
   api.game.roomEvents.useSubscription({ roomId }, {
     onData: ({ data }: { data: RoomEvent }) => {
       switch (data.type) {
@@ -63,7 +58,6 @@ export default function GameBoard({ roomId }: { roomId: string }) {
     },
   });
 
-  /* ---------- mutations --------------------------------------------- */
   const startGame = api.game.startGame.useMutation({ onError: (e) => toast.error(e.message) });
   const endGame   = api.game.endGame.useMutation({ onError: (e) => toast.error(e.message) });
   const restartGame = api.game.restartGame.useMutation({ onError: (e) => toast.error(e.message) });
@@ -79,7 +73,6 @@ export default function GameBoard({ roomId }: { roomId: string }) {
   const busy = startGame.isPending || endGame.isPending || restartGame.isPending;
   const hasVoted = useMemo(() => uid in votes, [uid, votes]);
 
-  /* ---------- render ------------------------------------------------- */
   if (roomLoading || snapLoading) return <Spinner />;
 
   return (
