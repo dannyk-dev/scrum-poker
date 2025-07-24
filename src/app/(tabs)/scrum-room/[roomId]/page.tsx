@@ -22,11 +22,11 @@ const ScrumRoomGameRoom = async ({ params }: Props) => {
         </CardTitle>
       </CardHeader>
       <CardContent className=' py-4 h-full flex items-center space-x-4'>
-          <GameSidebar roomId={roomId} />
 
-          <div className="flex flex-col justify-between h-full w-full">
+
+
             <GameBoard roomId={roomId} />
-          </div>
+
       </CardContent>
     </>
   );

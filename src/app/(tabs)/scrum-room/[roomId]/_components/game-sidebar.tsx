@@ -8,15 +8,21 @@ import type { Room } from "prisma/interfaces";
 import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { IconArrowBackUp } from "@tabler/icons-react";
+import { IconArrowBackUp, IconCrown } from "@tabler/icons-react";
 import InvitePlayers from "@/app/(tabs)/scrum-room/_components/invite-players";
-import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
-import { useSession } from "next-auth/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
+  room?: Room | null;
   roomId: string;
+  isLoading?: boolean;
+  isScrumMaster?: boolean;
 };
 
 export function formatJoinTime(date: Date): string {
@@ -26,20 +32,19 @@ export function formatJoinTime(date: Date): string {
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear();
 
-  return isSameDay
-    ? format(date, "HH:mm")
-    : format(date, "d MMM yyyy HH:mm");
+  return isSameDay ? format(date, "HH:mm") : format(date, "d MMM yyyy HH:mm");
 }
 
-const GameSidebar = ({ roomId }: Props) => {
+const GameSidebar = ({
+  room,
+  isScrumMaster = false,
+  roomId,
+  isLoading = false,
+}: Props) => {
   const utils = api.useUtils();
-  const { data: session }  = useSession();
 
-
-  const { data: room, isLoading } = api.room.getRoomById.useQuery({ roomId });
   const { mutate, isPending } = api.room.leaveRoom.useMutation();
   const router = useRouter();
-  const isScrumMaster = useIsScrumMaster(room as Room, session);
 
   const [lastUserJoined, setLastUserJoined] = useState<string | null>(null);
 
@@ -47,26 +52,25 @@ const GameSidebar = ({ roomId }: Props) => {
     { roomId: roomId, lastEventId: lastUserJoined },
     {
       async onData(data) {
-        //
-        if (data.data.kind === 'join') {
+        if (data.data.kind === "join") {
           toast(`${data.data.name} has joined the room`);
         } else {
           toast(`${data.data.name} has left the room`);
         }
 
         setLastUserJoined(data.data.lastId);
-        await utils.room.getRoomById.invalidate({ roomId });
+        await utils.room.getRoomById.invalidate({ roomId: roomId });
       },
     },
   );
 
   const leaveRoom = useCallback(() => {
     if (isScrumMaster) {
-      return router.replace('/scrum-room');
+      return router.replace("/scrum-room");
     }
 
     mutate(
-      { roomId },
+      { roomId: roomId },
       {
         onSuccess() {
           toast("Leaving room...");
@@ -74,10 +78,10 @@ const GameSidebar = ({ roomId }: Props) => {
         },
       },
     );
-  },[isScrumMaster, mutate, roomId, router])
+  }, [isScrumMaster, mutate, roomId, router]);
 
   return (
-    <Card className="h-full min-w-2/6 max-w-4/6">
+    <Card className="h-full max-w-4/6 min-w-2/6">
       <CardHeader>
         <CardTitle className="flex w-full items-center justify-between">
           <span>Players</span>
@@ -92,40 +96,46 @@ const GameSidebar = ({ roomId }: Props) => {
               <IconArrowBackUp />
               Leave Room
             </Button>
-            {room && (
-              <InvitePlayers
-                room={room}
-                hideText
-              />
-            )}
+            {room && <InvitePlayers room={room} hideText />}
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="h-full">
         {isLoading ? (
-          <Spinner />
+          <div className="w-full flex items-center ">
+            <Spinner className="mx-auto " />
+          </div>
         ) : (
           <div className="flex flex-col gap-y-3">
-            {room?.users.map((item) => (
-              <div
-                key={item.userId}
-                className="bg-accent text-accent-foreground flex w-full items-center justify-between rounded-lg p-3"
-              >
-                <div className="flex items-center gap-x-2">
-                  <Badge variant="default"></Badge>
-                  <span className="text-sm" >{item.user.name}</span>
-                </div>
+            {room?.users && room.users.length > 0 ? (
+              room?.users?.map((item) => (
+                <div
+                  key={item.userId}
+                  className="bg-accent text-accent-foreground flex w-full items-center justify-between rounded-lg p-3"
+                >
+                  <div className="flex items-center gap-x-2">
+                    <Badge variant="default"></Badge>
+                    <span className="text-sm">{item.user!.name}</span>
+                  </div>
 
-                <div className="flex items-center gap-x-2">
-                  {item.role === 'SCRUM_MASTER' && (
-                    <Badge className="text-sm" variant="default">Scrum Master</Badge>
-                  )}
-                  <span className="text-muted-foreground text-xs">
-                  {formatJoinTime(new Date(item.joinedAt))}
-                </span>
+                  <div className="flex items-center gap-x-2">
+                    {item.role === "SCRUM_MASTER" && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <IconCrown size={20} />
+                        </TooltipTrigger>
+                        <TooltipContent>Scrum Master</TooltipContent>
+                      </Tooltip>
+                    )}
+                    <span className="text-muted-foreground text-xs">
+                      {formatJoinTime(new Date(item.joinedAt))}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p>No users found</p>
+            )}
           </div>
         )}
       </CardContent>

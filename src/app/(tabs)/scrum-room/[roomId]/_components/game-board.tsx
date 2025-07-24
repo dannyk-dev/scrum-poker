@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { api } from "@/trpc/react";
@@ -10,92 +9,123 @@ import VotePanel from "./vote-panel";
 import ResultsCard from "./results-card";
 import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
 // import type { RoomEvent } from "@/server/api/routers/gameRouter";
-import { type RoomEvent } from '../../../../../server/api/routers/game';
-
+import { type RoomEvent } from "../../../../../server/api/routers/game";
+import type { Vote } from "prisma/interfaces";
+import GameSidebar from "@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar";
 
 export default function GameBoard({ roomId }: { roomId: string }) {
   const { data: session } = useSession();
   const uid = session?.user.id ?? "";
 
-  const { data: room, isLoading: roomLoading } = api.room.getRoomById.useQuery({ roomId });
+  const { data: room, isLoading: roomLoading } = api.room.getRoomById.useQuery({
+    roomId,
+  });
   const isScrumMaster = useIsScrumMaster(room!, session);
 
-  const { data: snap, isLoading: snapLoading } = api.game.snapshot.useQuery({ roomId });
+  const { data: snap, isLoading: snapLoading } = api.game.snapshot.useQuery({
+    roomId,
+  });
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, number>>({});
-  const [results, setResults] = useState<{ userId: string; value: number; username: string; }[] | null>(null);
+  const [results, setResults] = useState<Vote[] | null>(null);
 
   useEffect(() => {
-    if (!snap) return;
+    if (!snap?.votes) return;
+
     setGameId(snap.gameId);
     setVotes(Object.fromEntries(snap.votes.map((v) => [v.userId, v.value])));
     setResults(null);
   }, [snap]);
 
-  api.game.roomEvents.useSubscription({ roomId }, {
-    onData: ({ data }: { data: RoomEvent }) => {
-      switch (data.type) {
-        case "start":
-          setGameId(data.gameId);
-          setVotes({});
-          setResults(null);
-          break;
-        case "vote":
-          setVotes((v) => ({ ...v, [data.userId]: data.value }));
-          break;
-        case "end":
-          setGameId(null);
-          setResults(data.results);
-          setVotes({});
-          break;
-        case "restart":
-          setGameId(data.gameId);
-          setVotes({});
-          setResults(null);
-          break;
-      }
-    },
-  });
+  api.game.roomEvents.useSubscription(
+    { roomId },
+    {
+      onData: ({ data }: { data: RoomEvent }) => {
+        switch (data.type) {
+          case "start":
+            toast('Game started!')
+            setGameId(data.gameId);
+            setVotes({});
+            setResults(null);
+            break;
+          case "vote":
+            toast(`${data.username} has submitted a vote`);
+            setVotes((v) => ({ ...v, [data.userId]: data.value }));
 
-  const startGame = api.game.startGame.useMutation({ onError: (e) => toast.error(e.message) });
-  const endGame   = api.game.endGame.useMutation({ onError: (e) => toast.error(e.message) });
-  const restartGame = api.game.restartGame.useMutation({ onError: (e) => toast.error(e.message) });
+            break;
+          case "end":
+            setGameId(null);
+            setResults(data.results as Vote[]);
+            setVotes({});
+            break;
+          case "restart":
+            setGameId(data.gameId);
+            setVotes({});
+            setResults(null);
+            break;
+        }
+      },
+    },
+  );
+
+  const startGame = api.game.startGame.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
+  const endGame = api.game.endGame.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
+  const restartGame = api.game.restartGame.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
   const castVote = api.game.castVote.useMutation({
     onMutate: ({ value }) => setVotes((v) => ({ ...v, [uid]: value })),
-    onError  : (e) => toast.error(e.message),
+    onError: (e) => toast.error(e.message),
   });
 
-  const handleVote = useCallback((value: number) => {
-    if (gameId) castVote.mutate({ roomId, gameId, value });
-  }, [castVote, gameId, roomId]);
+  const handleVote = useCallback(
+    (value: number) => {
+      if (gameId) castVote.mutate({ roomId, gameId, value });
+    },
+    [castVote, gameId, roomId],
+  );
 
-  const busy = startGame.isPending || endGame.isPending || restartGame.isPending;
+  const busy =
+    startGame.isPending || endGame.isPending || restartGame.isPending;
   const hasVoted = useMemo(() => uid in votes, [uid, votes]);
 
   if (roomLoading || snapLoading) return <Spinner />;
 
   return (
-    <div className="flex flex-col gap-6">
-      {isScrumMaster && (
-        <GameControls
-          gameId={gameId}
-          startGame={() => startGame.mutate({ roomId })}
-          endGame={() => gameId && endGame.mutate({ roomId, gameId })}
-          restartGame={() => gameId && restartGame.mutate({ roomId, gameId })}
-          busy={busy}
-        />
-      )}
+    <>
+      <GameSidebar room={room} roomId={roomId} isLoading={roomLoading} isScrumMaster={isScrumMaster} />
+      <div className="flex h-full w-full flex-col justify-between">
+        <div className="flex flex-col gap-6">
+          {isScrumMaster && (
+            <GameControls
+              gameId={gameId}
+              startGame={() => startGame.mutate({ roomId })}
+              endGame={() => gameId && endGame.mutate({ roomId, gameId })}
+              restartGame={() =>
+                gameId && restartGame.mutate({ roomId, gameId })
+              }
+              busy={busy}
+            />
+          )}
 
-      {results ? (
-        <ResultsCard results={results} users={room!.users} />
-      ) : gameId ? (
-        <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
-      ) : (
-        <p className="text-center text-muted-foreground">
-          {isScrumMaster ? "Press “Start game” to begin." : "Waiting for Scrum‑Master to start…"}
-        </p>
-      )}
-    </div>
+          {results ? (
+            <ResultsCard results={results} users={room!.users} />
+          ) : gameId && !isScrumMaster ? (
+            <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
+          ) : (
+            <p className="text-muted-foreground text-center">
+              {isScrumMaster
+                ? "Press “Start game” to begin."
+                : "Waiting for Scrum‑Master to start…"}
+            </p>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

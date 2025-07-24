@@ -2,8 +2,11 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
 import { getRedisClient } from "@/server/redis";
-import { Role } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 import { tracked, TRPCError } from "@trpc/server";
+import { endGameSchema, roomQuerySchema, voteSchema } from "@/lib/schemas";
+import type { Game } from "prisma/interfaces";
+import type { IEndGameResponse, IGameSnapshot } from "@/lib/types/game.types";
 
 const CH = {
   start: (r: string) => `room:${r}:game:start`,
@@ -22,23 +25,17 @@ export type RoomEvent =
     }
   | { type: "restart"; gameId: string };
 
-type RedisEvt = {
-  start: RoomEvent & { type: "start" };
-  vote: RoomEvent & { type: "vote" };
-  end: RoomEvent & { type: "end" };
-  restart: RoomEvent & { type: "restart" };
-};
-
 async function* roomListener(roomId: string, signal: AbortSignal) {
   const sub = getRedisClient().duplicate();
   const channels = Object.values(CH).map((fn) => fn(roomId));
-  await sub.subscribe(channels);
+  await sub.subscribe(...channels);
 
   const queue: RoomEvent[] = [];
   let wake: (() => void) | null = null;
 
   sub.on("message", (channel, raw) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const payload = JSON.parse(raw);
       const type = Object.keys(CH).find(
         (k) => CH[k as keyof typeof CH](roomId) === channel,
@@ -52,7 +49,7 @@ async function* roomListener(roomId: string, signal: AbortSignal) {
   });
 
   signal.addEventListener("abort", () => {
-    void sub.unsubscribe(channels).finally(() => sub.disconnect());
+    void sub.unsubscribe(...channels).finally(() => sub.disconnect());
     wake?.();
   });
 
@@ -66,26 +63,26 @@ async function* roomListener(roomId: string, signal: AbortSignal) {
   }
 }
 
-const getActiveGameWithVotes = (roomId: string) =>
-  db.game.findFirst({
+const getActiveGameWithVotes = async (ctxDb: PrismaClient, roomId: string): Promise<Game|null> => {
+  return await ctxDb.game.findFirst({
     where: { roomId, endedAt: null },
     include: { votes: { select: { userId: true, value: true } } },
-  });
-
+  }) as Game;
+}
 
 export const gameRouter = createTRPCRouter({
   snapshot: protectedProcedure
-    .input(z.object({ roomId: z.string() }))
-    .query(async ({ input }) => {
-      const game = await getActiveGameWithVotes(input.roomId);
+    .input(roomQuerySchema)
+    .query(async ({ ctx, input }): Promise<IGameSnapshot> => {
+      const game = await getActiveGameWithVotes(ctx.db, input.roomId);
       return game
         ? { gameId: game.id, votes: game.votes }
         : ({ gameId: null, votes: [] } as const);
     }),
 
   startGame: protectedProcedure
-    .input(z.object({ roomId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
+    .input(roomQuerySchema)
+    .mutation(async ({ ctx, input }): Promise<Game> => {
       const userId = ctx.session.user.id;
       const membership = await db.roomUser.findUnique({
         where: { roomId_userId: { roomId: input.roomId, userId } },
@@ -104,7 +101,7 @@ export const gameRouter = createTRPCRouter({
         }),
       ]);
 
-      const g = await getActiveGameWithVotes(input.roomId);
+      const g = await getActiveGameWithVotes(ctx.db, input.roomId);
       await getRedisClient().publish(
         CH.start(input.roomId),
         JSON.stringify({ gameId: g!.id }),
@@ -113,25 +110,23 @@ export const gameRouter = createTRPCRouter({
     }),
 
   castVote: protectedProcedure
-    .input(
-      z.object({
-        roomId: z.string(),
-        gameId: z.string(),
-        value: z.number().int().positive(),
-      }),
-    )
+    .input(voteSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       const ru = await ctx.db.roomUser.findUnique({
-        where: { roomId_userId: {roomId: input.roomId, userId: ctx.session.user.id} },
+        where: {
+          roomId_userId: { roomId: input.roomId, userId: ctx.session.user.id },
+        },
         include: {
-          user: true
-        }
+          user: true,
+        },
       });
 
       if (!ru || ru.role === Role.SCRUM_MASTER)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Scrum Master cannot vote" });
-
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Scrum Master cannot vote",
+        });
 
       await db.vote.upsert({
         where: { gameId_userId: { gameId: input.gameId, userId } },
@@ -147,8 +142,8 @@ export const gameRouter = createTRPCRouter({
     }),
 
   endGame: protectedProcedure
-    .input(z.object({ roomId: z.string(), gameId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
+    .input(endGameSchema)
+    .mutation(async ({ ctx, input }): Promise<IEndGameResponse> => {
       const userId = ctx.session.user.id;
       const g = await db.game.findUnique({
         where: { id: input.gameId },
@@ -161,19 +156,23 @@ export const gameRouter = createTRPCRouter({
         where: { id: input.gameId },
         data: { endedAt: new Date() },
       });
+
       const results = await db.vote.findMany({
         where: { gameId: input.gameId },
-        select: { userId: true, value: true },
+        include: {
+          user: true
+        }
       });
+
       await getRedisClient().publish(
         CH.end(input.roomId),
         JSON.stringify({ gameId: input.gameId, results }),
       );
-      return { ok: true, results } as const;
+      return { ok: true, results };
     }),
 
   restartGame: protectedProcedure
-    .input(z.object({ roomId: z.string(), gameId: z.string() }))
+    .input(endGameSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
       const g = await db.game.findUnique({
@@ -192,7 +191,7 @@ export const gameRouter = createTRPCRouter({
     }),
 
   roomEvents: protectedProcedure
-    .input(z.object({ roomId: z.string() }))
+    .input(roomQuerySchema)
     .subscription(async function* ({ input, signal }) {
       for await (const ev of roomListener(input.roomId, signal!)) {
         const id = "ts" + Date.now().toString(36);
