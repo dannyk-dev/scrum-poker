@@ -83,7 +83,7 @@ export const roomRouter = createTRPCRouter({
       if (membership.role === Role.SCRUM_MASTER) {
         const next = await ctx.db.roomUser.findFirst({
           where: { roomId, userId: { not: userId } },
-          orderBy: { joinedAt: 'asc' },
+          orderBy: { joinedAt: "asc" },
         });
 
         if (next) {
@@ -98,7 +98,11 @@ export const roomRouter = createTRPCRouter({
 
       await redisClient.publish(
         `room:${roomId}:user:leave`,
-        JSON.stringify({ userId, name: ctx.session.user.name ?? "Someone", ts: Date.now() }),
+        JSON.stringify({
+          userId,
+          name: ctx.session.user.name ?? "Someone",
+          ts: Date.now(),
+        }),
       );
 
       await ctx.db.roomUser.delete({
@@ -111,16 +115,16 @@ export const roomRouter = createTRPCRouter({
   getRoomById: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .query(async ({ ctx, input }) => {
-      return await ctx.db.room.findUnique({
+      return ctx.db.room.findUnique({
         where: { id: input.roomId },
         include: {
-          users: {
-            include: {
-              user: true
-            }
+          users: { include: { user: true } },
+          games: {
+            // 👈 instead of  game: true
+            where: { endedAt: null }, // only send the active one
+            take: 1,
           },
           invitations: true,
-          game: true,
         },
       });
     }),

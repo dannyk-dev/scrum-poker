@@ -1,259 +1,206 @@
 import { z } from "zod";
-import {
-  createTRPCRouter,
-  protectedProcedure,
-} from "@/server/api/trpc";
-import { getRedisClient } from "@/server/redis";
+import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
+import { getRedisClient } from "@/server/redis";
 import { Role } from "@prisma/client";
-import { TRPCError } from "@trpc/server";
-import { tracked } from "@trpc/server";
-import { sleep } from "@/lib/utils";
+import { tracked, TRPCError } from "@trpc/server";
 
-/**
- * Channel helpers -----------------------------------------------------------
- */
-const ch = {
-  gameStart: (roomId: string) => `room:${roomId}:game:start`,
-  vote: (roomId: string) => `room:${roomId}:vote`,
-  gameEnd: (roomId: string) => `room:${roomId}:game:end`,
-  gameRestart: (roomId: string) => `room:${roomId}:game:restart`,
+const CH = {
+  start: (r: string) => `room:${r}:game:start`,
+  vote: (r: string) => `room:${r}:game:vote`,
+  end: (r: string) => `room:${r}:game:end`,
+  restart: (r: string) => `room:${r}:game:restart`,
+} as const;
+
+export type RoomEvent =
+  | { type: "start"; gameId: string }
+  | { type: "vote"; userId: string; value: number }
+  | {
+      type: "end";
+      gameId: string;
+      results: { userId: string; value: number }[];
+    }
+  | { type: "restart"; gameId: string };
+
+type RedisEvt = {
+  start: RoomEvent & { type: "start" };
+  vote: RoomEvent & { type: "vote" };
+  end: RoomEvent & { type: "end" };
+  restart: RoomEvent & { type: "restart" };
 };
 
-/**
- * Utility: create a dedicated Redis subscriber that auto‑disconnects on abort
- */
-const makeSub = async (
-  channel: string,
-  signal: AbortSignal,
-  onMessage: (raw: string) => void,
-) => {
-  const sub = getRedisClient();
-  await sub.subscribe(channel);
-  sub.on("message", (_c, raw) => onMessage(raw));
-  signal.addEventListener("abort", () => {
-    sub.off("message", onMessage);
-    void sub.unsubscribe(channel).finally(() => void sub.disconnect());
+async function* roomListener(roomId: string, signal: AbortSignal) {
+  const sub = getRedisClient().duplicate();
+  const channels = Object.values(CH).map((fn) => fn(roomId));
+  await sub.subscribe(channels);
+
+  const queue: RoomEvent[] = [];
+  let wake: (() => void) | null = null;
+
+  sub.on("message", (channel, raw) => {
+    try {
+      const payload = JSON.parse(raw);
+      const type = Object.keys(CH).find(
+        (k) => CH[k as keyof typeof CH](roomId) === channel,
+      ) as keyof typeof CH;
+      if (!type) return;
+      queue.push({ type, ...payload } as RoomEvent);
+      wake?.();
+    } catch {
+      /* ignore */
+    }
   });
-  return sub;
-};
 
+  signal.addEventListener("abort", () => {
+    void sub.unsubscribe(channels).finally(() => sub.disconnect());
+    wake?.();
+  });
+
+  while (!signal.aborted) {
+    if (queue.length) {
+      yield queue.shift()!;
+      continue;
+    }
+    await new Promise<void>((r) => (wake = r));
+    wake = null;
+  }
+}
+
+/* ------------------------------ DB helpers ----------------------------- */
+const getActiveGameWithVotes = (roomId: string) =>
+  db.game.findFirst({
+    where: { roomId, endedAt: null },
+    include: { votes: { select: { userId: true, value: true } } },
+  });
+
+/* --------------------------------------------------------------------------
+  Router
+-------------------------------------------------------------------------- */
 export const gameRouter = createTRPCRouter({
+  /* ========== Query: snapshot for initial paint ======================= */
+  snapshot: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
+    .query(async ({ input }) => {
+      const game = await getActiveGameWithVotes(input.roomId);
+      return game
+        ? { gameId: game.id, votes: game.votes }
+        : ({ gameId: null, votes: [] } as const);
+    }),
+
+  /* ========== Mutations (unchanged, still publish Redis events) ======= */
   startGame: protectedProcedure
     .input(z.object({ roomId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const { roomId } = input;
-
-      const ru = await db.roomUser.findUnique({
-        where: { roomId_userId: { roomId, userId } },
+      const membership = await db.roomUser.findUnique({
+        where: { roomId_userId: { roomId: input.roomId, userId } },
+        select: { role: true },
       });
-      if (!ru || ru.role !== Role.SCRUM_MASTER) {
+      if (membership?.role !== Role.SCRUM_MASTER)
         throw new TRPCError({ code: "FORBIDDEN" });
-      }
 
-      await db.game.updateMany({
-        where: { roomId, endedAt: null },
-        data: { endedAt: new Date() },
-      });
+      await db.$transaction([
+        db.game.updateMany({
+          where: { roomId: input.roomId, endedAt: null },
+          data: { endedAt: new Date() },
+        }),
+        db.game.create({
+          data: { roomId: input.roomId, scrumMasterId: userId },
+        }),
+      ]);
 
-      const game = await db.game.create({
-        data: { roomId, scrumMasterId: userId },
-      });
-
-      await getRedisClient().publish(ch.gameStart(roomId), JSON.stringify({ gameId: game.id }));
-
-      return game;
+      const g = await getActiveGameWithVotes(input.roomId);
+      await getRedisClient().publish(
+        CH.start(input.roomId),
+        JSON.stringify({ gameId: g!.id }),
+      );
+      return g!;
     }),
+
   castVote: protectedProcedure
-    .input(z.object({ roomId: z.string(), gameId: z.string(), value: z.number() }))
+    .input(
+      z.object({
+        roomId: z.string(),
+        gameId: z.string(),
+        value: z.number().int().positive(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const { roomId, gameId, value } = input;
-
-      const ru = await db.roomUser.findUnique({
-        where: { roomId_userId: { roomId, userId } },
+      const ru = await ctx.db.roomUser.findUnique({
+        where: { roomId_userId: {roomId: input.roomId, userId: ctx.session.user.id} }
       });
-      if (!ru || ru.role !== Role.USER) throw new TRPCError({ code: "FORBIDDEN" });
+
+      if (!ru || ru.role === Role.SCRUM_MASTER)
+        throw new TRPCError({ code: "FORBIDDEN" });
+
 
       await db.vote.upsert({
-        where: { gameId_userId: { gameId, userId } },
-        create: { gameId, userId, value },
-        update: { value },
+        where: { gameId_userId: { gameId: input.gameId, userId } },
+        create: { gameId: input.gameId, userId, value: input.value },
+        update: { value: input.value },
       });
 
-      await getRedisClient().hset(`game:${gameId}:votes`, userId, value);
-
-      await getRedisClient().publish(ch.vote(roomId), JSON.stringify({ userId, value }));
-
-      return { ok: true };
+      await getRedisClient().publish(
+        CH.vote(input.roomId),
+        JSON.stringify({ userId, value: input.value }),
+      );
+      return { ok: true } as const;
     }),
+
   endGame: protectedProcedure
     .input(z.object({ roomId: z.string(), gameId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const { roomId, gameId } = input;
+      const g = await db.game.findUnique({
+        where: { id: input.gameId },
+        select: { scrumMasterId: true },
+      });
+      if (!g || g.scrumMasterId !== userId)
+        throw new TRPCError({ code: "FORBIDDEN" });
 
-      const game = await db.game.findUnique({ where: { id: gameId } });
-      if (!game || game.scrumMasterId !== userId) throw new TRPCError({ code: "FORBIDDEN" });
-
-      // Mark ended
-      await db.game.update({ where: { id: gameId }, data: { endedAt: new Date() } });
-
-      // Gather votes from DB (authoritative)
-      const votes = await db.vote.findMany({
-        where: { gameId },
+      await db.game.update({
+        where: { id: input.gameId },
+        data: { endedAt: new Date() },
+      });
+      const results = await db.vote.findMany({
+        where: { gameId: input.gameId },
         select: { userId: true, value: true },
       });
-
-      await getRedisClient().publish(ch.gameEnd(roomId), JSON.stringify({ gameId, results: votes }));
-
-      // Clear redis hash – optional housekeeping
-      await getRedisClient().del(`game:${gameId}:votes`);
-
-      return { ok: true, results: votes };
+      await getRedisClient().publish(
+        CH.end(input.roomId),
+        JSON.stringify({ gameId: input.gameId, results }),
+      );
+      return { ok: true, results } as const;
     }),
 
-  /**
-   * Allows Scrum‑Master to restart the same game (clears votes, keeps same id).
-   */
   restartGame: protectedProcedure
     .input(z.object({ roomId: z.string(), gameId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const { roomId, gameId } = input;
+      const g = await db.game.findUnique({
+        where: { id: input.gameId },
+        select: { scrumMasterId: true },
+      });
+      if (!g || g.scrumMasterId !== userId)
+        throw new TRPCError({ code: "FORBIDDEN" });
 
-      const game = await db.game.findUnique({ where: { id: gameId } });
-      if (!game || game.scrumMasterId !== userId) throw new TRPCError({ code: "FORBIDDEN" });
-
-      // Delete votes DB + Redis
-      await db.vote.deleteMany({ where: { gameId } });
-      await getRedisClient().del(`game:${gameId}:votes`);
-
-      await getRedisClient().publish(ch.gameRestart(roomId), JSON.stringify({ gameId }));
-      return { ok: true };
+      await db.vote.deleteMany({ where: { gameId: input.gameId } });
+      await getRedisClient().publish(
+        CH.restart(input.roomId),
+        JSON.stringify({ gameId: input.gameId }),
+      );
+      return { ok: true } as const;
     }),
 
-  /** ---------------------------------------------------------------------
-   * Subscriptions (v12 async‑generator w/ tracked for resumability)
-   * --------------------------------------------------------------------*/
-
-  onGameStart: protectedProcedure
-    .input(z.object({ roomId: z.string(), lastEventId: z.string().nullish() }))
-    .subscription(async function* ({ ctx, input, signal }) {
-      const { roomId, lastEventId } = input;
-      let lastId = lastEventId ?? null;
-
-      // Catch‑up: all games with id > lastId
-      const past = await db.game.findMany({
-        where: { roomId, ...(lastId && { id: { gt: lastId } }) },
-        orderBy: { createdAt: "asc" },
-      });
-      for (const g of past) {
-        yield tracked(g.id, { gameId: g.id });
-        lastId = g.id;
-      }
-
-      // Live
-      const queue: { gameId: string }[] = [];
-      await makeSub(ch.gameStart(roomId), signal, (raw) => {
-        try {
-          const ev = JSON.parse(raw) as { gameId: string };
-          if (ev.gameId !== lastId) queue.push(ev);
-        } catch {}
-      });
-
-      while (!signal.aborted) {
-        while (queue.length) {
-          const ev = queue.shift()!;
-          yield tracked(ev.gameId, ev);
-          lastId = ev.gameId;
-        }
-        await sleep(100);
-      }
-    }),
-
-  onVote: protectedProcedure
-    .input(z.object({ roomId: z.string(), lastEventId: z.string().nullish() }))
+  /* ========== ONE subscription ======================================= */
+  roomEvents: protectedProcedure
+    .input(z.object({ roomId: z.string() }))
     .subscription(async function* ({ input, signal }) {
-      const { roomId, lastEventId } = input;
-      let lastId = lastEventId ?? null;
-
-      const queue: { userId: string; value: number }[] = [];
-      await makeSub(ch.vote(roomId), signal, (raw) => {
-        try { queue.push(JSON.parse(raw)); } catch {}
-      });
-
-      while (!signal.aborted) {
-        while (queue.length) {
-          const v = queue.shift()!;
-          const eventId = `${v.userId}-${Date.now()}`;
-          if (eventId !== lastId) {
-            yield tracked(eventId, v);
-            lastId = eventId;
-          }
-        }
-        await sleep(100);
-      }
-    }),
-
-  onGameEnd: protectedProcedure
-    .input(z.object({ roomId: z.string(), lastEventId: z.string().nullish() }))
-    .subscription(async function* ({ ctx, input, signal }) {
-      const { roomId, lastEventId } = input;
-      let lastId = lastEventId ?? null;
-
-      // Catch‑up ended games with id > lastId
-      const past = await db.game.findMany({
-        where: { roomId, endedAt: { not: null }, ...(lastId && { id: { gt: lastId } }) },
-        orderBy: { endedAt: "asc" },
-        include: { votes: { select: { userId: true, value: true } } },
-      });
-      for (const g of past) {
-        yield tracked(g.id, { gameId: g.id, results: g.votes });
-        lastId = g.id;
-      }
-
-      // Live
-      const queue: { gameId: string; results: { userId: string; value: number }[] }[] = [];
-      await makeSub(ch.gameEnd(roomId), signal, (raw) => {
-        try {
-          const ev = JSON.parse(raw);
-          if (ev.gameId !== lastId) queue.push(ev);
-        } catch {}
-      });
-
-      while (!signal.aborted) {
-        while (queue.length) {
-          const ev = queue.shift()!;
-          yield tracked(ev.gameId, ev);
-          lastId = ev.gameId;
-        }
-        await sleep(100);
-      }
-    }),
-
-  onGameRestart: protectedProcedure
-    .input(z.object({ roomId: z.string(), lastEventId: z.string().nullish() }))
-    .subscription(async function* ({ input, signal }) {
-      const { roomId, lastEventId } = input;
-      let lastId = lastEventId ?? null;
-
-      const queue: { gameId: string }[] = [];
-      await makeSub(ch.gameRestart(roomId), signal, (raw) => {
-        try {
-          const ev = JSON.parse(raw) as { gameId: string };
-          if (ev.gameId !== lastId) queue.push(ev);
-        } catch {}
-      });
-
-      while (!signal.aborted) {
-        while (queue.length) {
-          const ev = queue.shift()!;
-          yield tracked(ev.gameId, ev);
-          lastId = ev.gameId;
-        }
-        await sleep(100);
+      for await (const ev of roomListener(input.roomId, signal)) {
+        // create a cursor from redis timestamp or Date.now()
+        const id = "ts" + Date.now().toString(36);
+        yield tracked(id, ev);
       }
     }),
 });

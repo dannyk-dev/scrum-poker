@@ -18,7 +18,10 @@
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
     "start": "prisma migrate deploy && next start -p $PORT",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:docker:build": "docker compose -f docker-compose.dev.yml up --build -d",
+    "dev:docker": "docker compose -f docker-compose.dev.yml up -d",
+    "dev:docker:drop": "docker compose -f docker-compose.dev.yml down -v"
     },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",

@@ -1,0 +1,50 @@
+###############################################################################
+# Dockerfile.dev  –  LOCAL DEVELOPMENT (Next.js + Prisma + Fast Refresh)
+###############################################################################
+FROM node:20-alpine
+WORKDIR /app
+
+# Optional tools for interactive shells & SSL
+RUN apk add --no-cache bash openssl
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Copy lockfiles first → best build‑cache utilisation
+# ─────────────────────────────────────────────────────────────────────────────
+COPY package.json package-lock.json* pnpm-lock.yaml* bun.lockb* ./
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Copy Prisma schema *before* npm ci so postinstall (prisma generate) works
+#    Also copy migrations; they’re needed later by migrate deploy.
+# ─────────────────────────────────────────────────────────────────────────────
+COPY prisma ./prisma
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Install dependencies (runs `prisma generate` in postinstall)
+# ─────────────────────────────────────────────────────────────────────────────
+RUN npm ci --legacy-peer-deps
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Copy the rest of the project – this layer changes frequently
+# ─────────────────────────────────────────────────────────────────────────────
+COPY . .
+
+ENV NODE_ENV=development
+# Reliable file‑watches on macOS/Windows; harmless on Linux
+ENV WATCHPACK_POLLING=true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Lightweight entrypoint: apply any new migrations, then start Next.js
+# ─────────────────────────────────────────────────────────────────────────────
+COPY <<'SH' /usr/local/bin/entrypoint.sh
+#!/bin/sh
+set -e
+
+# Run pending migrations (safe no‑op if DB is current)
+npx prisma migrate deploy --skip-seed >/dev/null 2>&1 || true
+
+# Launch the dev server (Fast Refresh)
+exec "$@"
+SH
+
+CMD ["npm", "run", "dev"]
+EXPOSE 3000

@@ -10,7 +10,7 @@ const RoomsLayout = ({ children }: PropsWithChildren) => {
   // void trpc.game.getRooms.prefetch();
 
   return (
-    <div className="mx-auto mt-10 flex min-h-screen w-5/6 items-start justify-center">
+    <div className="mx-auto mt-10 flex min-h-screen w-5/6 items-start justify-center ">
       <Card className="relative z-10 w-full gap-y-3 shadow-2xl md:h-[80vh] 2xl:h-[85vh]">
         {children}
         <BorderBeam

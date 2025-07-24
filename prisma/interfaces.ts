@@ -55,7 +55,7 @@ export interface Room {
   name: string;
   createdAt: Date;
   users?: RoomUser[];
-  game?: Game | null;
+  games?: Game[];
   invitations?: Invitation[];
 }
 

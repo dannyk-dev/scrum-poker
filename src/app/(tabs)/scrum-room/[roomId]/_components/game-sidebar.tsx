@@ -77,7 +77,7 @@ const GameSidebar = ({ roomId }: Props) => {
   },[isScrumMaster, mutate, roomId, router])
 
   return (
-    <Card className="h-full min-w-1/4 max-w-2/6">
+    <Card className="h-full min-w-2/6 max-w-4/6">
       <CardHeader>
         <CardTitle className="flex w-full items-center justify-between">
           <span>Players</span>

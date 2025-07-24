@@ -59,7 +59,7 @@ set -e
 npx prisma migrate deploy
 exec npm start        # "next start -p $PORT"
 SH
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# RUN chmod +x /usr/local/bin/entrypoint.sh/
 
 EXPOSE 3000
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
