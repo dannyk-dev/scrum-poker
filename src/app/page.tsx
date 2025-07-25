@@ -24,7 +24,7 @@ export default async function Home() {
             </Button>
           ) : (
             <Button asChild variant="secondary" size='lg'>
-              <Link href="/auth/signin">
+              <Link href="/api/auth/signin">
                 <IconLayoutKanban />
                 Connect Jira
               </Link>

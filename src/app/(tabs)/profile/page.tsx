@@ -15,7 +15,7 @@ const ProfilePage = () => {
               <p>This will disconnect your jira account.</p>
             <div className="w-max">
               <Button variant='destructive' asChild>
-                <Link href='/auth/signout'>
+                <Link href='/api/auth/signout'>
                   Sign out
                 </Link>
               </Button>
