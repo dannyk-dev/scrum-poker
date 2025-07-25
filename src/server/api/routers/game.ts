@@ -6,6 +6,7 @@ import { tracked, TRPCError } from "@trpc/server";
 import { endGameSchema, roomQuerySchema, voteSchema } from "@/lib/schemas";
 import type { Game } from "prisma/interfaces";
 import type { IEndGameResponse, IGameSnapshot } from "@/lib/types/game.types";
+import type { RoomEvent } from "@/lib/types/events.types";
 
 const CH = {
   start: (r: string) => `room:${r}:game:start`,
@@ -14,11 +15,6 @@ const CH = {
   restart: (r: string) => `room:${r}:game:restart`,
 } as const;
 
-export type RoomEvent =
-  | { type: "start"; gameId: string }
-  | { type: "vote"; userId: string; value: number; username: string }
-  | { type: "end"; gameId: string; results: { userId: string; value: number }[]; estimate: number }
-  | { type: "restart"; gameId: string };
 
 
 async function* roomListener(roomId: string, signal: AbortSignal) {

@@ -28,20 +28,25 @@ export default async function RootLayout({
   const session = await auth();
 
   if (!session?.user) {
-    redirect('/api/auth/signin')
+    redirect("/api/auth/signin");
   }
 
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-background antialiased overflow-hidden">
-        <ThemeProvider attribute='class' defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <body className="bg-background min-h-screen overflow-hidden antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
           <SessionProvider session={session}>
             <TRPCReactProvider>
-          {children}
+              {children}
 
-          <ProtectedSidebar isAuthorized={Boolean(session)} />
-          <Toaster closeButton position="bottom-right" expand />
-        </TRPCReactProvider>
+              <ProtectedSidebar isAuthorized={Boolean(session)} />
+              <Toaster closeButton position="bottom-right" expand />
+            </TRPCReactProvider>
           </SessionProvider>
         </ThemeProvider>
       </body>

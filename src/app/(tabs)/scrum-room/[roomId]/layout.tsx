@@ -1,4 +1,3 @@
-import { GameProvider } from "@/app/(tabs)/scrum-room/[roomId]/_components/game-provider";
 import React, { type PropsWithChildren } from "react";
 
 

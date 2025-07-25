@@ -12,6 +12,13 @@ const config = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  productionBrowserSourceMaps: true,
+  webpack(cfg) {
+    if (!cfg.mode || cfg.mode === 'production') {
+      cfg.devtool = 'source-map';
+    }
+    return cfg;
+  },
   images: {
     remotePatterns: [
       {

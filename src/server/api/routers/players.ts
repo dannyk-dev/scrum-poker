@@ -265,7 +265,6 @@ export const playerRouter = createTRPCRouter({
         lastId = id;
       }
 
-      /* ╔════════════ 2) LIVE STREAM VIA REDIS ════════════════════════════╗ */
       const sub = getRedisClient();
       const channel = `user:${userId}:notifications`;
       await sub.subscribe(channel);
@@ -294,7 +293,7 @@ export const playerRouter = createTRPCRouter({
               }
             }
           }
-          await sleep(100); // lighter latency
+          await sleep(1000); // lighter latency
         }
       } finally {
         sub.off("message", onMsg);
@@ -379,7 +378,7 @@ export const playerRouter = createTRPCRouter({
             });
             lastId = id;
           }
-          await sleep(100); // small idle delay
+          await sleep(2000); // small idle delay
         }
       } finally {
         sub.off("message", onMsg);

@@ -1,15 +1,13 @@
-import GameBoard from '@/app/(tabs)/scrum-room/[roomId]/_components/game-board';
-import GameControls from '@/app/(tabs)/scrum-room/[roomId]/_components/game-controls';
-import GameSidebar from '@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar';
-import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { trpc } from "@/trpc/server";
+import GameBoard from "@/app/(tabs)/scrum-room/[roomId]/_components/game-board";
+
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import React from "react";
 
 type Props = {
   params: Promise<{
     roomId: string;
-  }>
-}
+  }>;
+};
 
 const ScrumRoomGameRoom = async ({ params }: Props) => {
   const { roomId } = await params;
@@ -17,16 +15,10 @@ const ScrumRoomGameRoom = async ({ params }: Props) => {
   return (
     <>
       <CardHeader>
-        <CardTitle>
-          Game Room
-        </CardTitle>
+        <CardTitle>Game Room</CardTitle>
       </CardHeader>
-      <CardContent className=' py-4 h-full flex items-center space-x-4'>
-
-
-
-            <GameBoard roomId={roomId} />
-
+      <CardContent className="flex h-full items-center space-x-4 py-4">
+        <GameBoard roomId={roomId} />
       </CardContent>
     </>
   );

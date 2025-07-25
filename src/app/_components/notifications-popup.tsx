@@ -74,7 +74,7 @@ const NotificationsPopup = () => {
           action: (
             <div className="ml-auto">
               <AcceptInvite
-                inviteToken={newNotif.data!.data!.token}
+                inviteToken={newNotif.data.data!.token}
                 inviteStatus={
                   newNotif.data.data as {
                     accepted: boolean;

@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { IOnVoteEvent } from "@/lib/types/game.types";
 // import type { Vote } from "@/server/api/routers/game-router";
-import type { RoomUser, Vote } from "prisma/interfaces";
+import type { RoomUser } from "prisma/interfaces";
 
 
 interface Props {
-  results: Vote[];
+  results: IOnVoteEvent[];
   estimate?: number;
   users: RoomUser[];
 }

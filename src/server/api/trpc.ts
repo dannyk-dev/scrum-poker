@@ -13,7 +13,6 @@ import { ZodError } from "zod";
 
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { getSession } from "next-auth/react";
 
 
 /**

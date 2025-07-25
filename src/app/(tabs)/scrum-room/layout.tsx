@@ -1,13 +1,9 @@
-import CreateRoom from "@/app/(tabs)/scrum-room/_components/create-room";
-import RoomsSidebar from "@/app/(tabs)/scrum-room/_components/rooms-sidebar";
-import RoomsSidebarSkeleton from "@/app/(tabs)/scrum-room/_components/rooms-sidebar-skeleton";
+
 import { BorderBeam } from "@/components/magicui/border-beam";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { trpc } from "@/trpc/server";
-import React, { Suspense, type PropsWithChildren } from "react";
+import { Card } from "@/components/ui/card";
+import React, {  type PropsWithChildren } from "react";
 
 const RoomsLayout = ({ children }: PropsWithChildren) => {
-  // void trpc.game.getRooms.prefetch();
 
   return (
     <div className="mx-auto mt-10 flex min-h-screen w-5/6 items-start justify-center ">
