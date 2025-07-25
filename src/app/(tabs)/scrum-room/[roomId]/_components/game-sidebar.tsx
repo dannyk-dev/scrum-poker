@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/trpc/react";
 import { useRouter } from "next/navigation";
-import type { Room } from "prisma/interfaces";
-import React, { useCallback, useState } from "react";
+import type { Role, Room, User, Vote } from "prisma/interfaces";
+import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ type Props = {
   roomId: string;
   isLoading?: boolean;
   isScrumMaster?: boolean;
+  votes: Record<string, number>;
 };
 
 export function formatJoinTime(date: Date): string {
@@ -35,11 +36,32 @@ export function formatJoinTime(date: Date): string {
   return isSameDay ? format(date, "HH:mm") : format(date, "d MMM yyyy HH:mm");
 }
 
+type TVoteState = 'ADMIN'|'VOTING'|'COMPLETED';
+type TVoteBadge ='default'|'success'|'warning';
+
+const userVoteState: Record<TVoteState, { badge: TVoteBadge, tooltip: string; }> = {
+  ADMIN: {
+    badge: 'default',
+    tooltip: 'Scrum Master'
+  },
+  COMPLETED: {
+    badge: 'success',
+    tooltip: 'Vote submitted'
+  },
+  VOTING: {
+    badge: 'warning',
+    tooltip: 'busy voting...'
+  }
+}
+
+
+
 const GameSidebar = ({
   room,
   isScrumMaster = false,
   roomId,
   isLoading = false,
+  votes
 }: Props) => {
   const utils = api.useUtils();
 
@@ -80,8 +102,18 @@ const GameSidebar = ({
     );
   }, [isScrumMaster, mutate, roomId, router]);
 
+  const userState = useCallback((userId: string, role: Role): TVoteState => {
+    if (role === 'SCRUM_MASTER') return 'ADMIN';
+
+    if (votes[userId]) {
+      return 'COMPLETED'
+    }
+
+    return 'VOTING'
+  }, [votes])
+
   return (
-    <Card className="h-full max-w-4/6 min-w-2/6">
+    <Card className="h-full w-full lg:max-w-4/6 lg:min-w-2/6">
       <CardHeader>
         <CardTitle className="flex w-full items-center justify-between">
           <span>Players</span>
@@ -114,7 +146,14 @@ const GameSidebar = ({
                   className="bg-accent text-accent-foreground flex w-full items-center justify-between rounded-lg p-3"
                 >
                   <div className="flex items-center gap-x-2">
-                    <Badge variant="default"></Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant={userVoteState[userState(item.userId, item.role)].badge}></Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {userVoteState[userState(item.userId, item.role)].tooltip}
+                      </TooltipContent>
+                    </Tooltip>
                     <span className="text-sm">{item.user!.name}</span>
                   </div>
 

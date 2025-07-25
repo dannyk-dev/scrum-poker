@@ -56,6 +56,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
             }
 
 
+
             setVotes((v) => ({ ...v, [voteEvent.userId]: voteEvent.value }));
             break;
           case "end":
@@ -102,10 +103,10 @@ export default function GameBoard({ roomId }: { roomId: string }) {
   if (roomLoading || snapLoading) return <Spinner />;
 
   return (
-    <>
-      <GameSidebar room={room} roomId={roomId} isLoading={roomLoading} isScrumMaster={isScrumMaster} />
-      <div className="flex h-full w-full flex-col justify-between">
-        <div className="flex flex-col gap-6">
+    <div className="flex flex-col-reverse gap-y-10 md:gap-y-0 w-full h-full md:gap-x-4 max-w-screen md:flex-row ">
+      <GameSidebar room={room} roomId={roomId} isLoading={roomLoading} isScrumMaster={isScrumMaster} votes={votes} />
+      <div className="flex mt-4 md:mt-0 h-full w-full flex-col justify-between">
+        <div className="flex flex-col gap-6 w-full">
           {isScrumMaster && (
             <GameControls
               gameId={gameId}
@@ -123,7 +124,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
           ) : gameId && !isScrumMaster ? (
             <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
           ) : (
-            <p className="text-muted-foreground text-center">
+            <p className="text-muted-foreground text-center mt-4 md:mt-0">
               {isScrumMaster
                 ? "Press “Start game” to begin."
                 : "Waiting for Scrum‑Master to start…"}
@@ -131,6 +132,6 @@ export default function GameBoard({ roomId }: { roomId: string }) {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

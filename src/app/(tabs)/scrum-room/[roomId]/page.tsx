@@ -17,7 +17,7 @@ const ScrumRoomGameRoom = async ({ params }: Props) => {
       <CardHeader>
         <CardTitle>Game Room</CardTitle>
       </CardHeader>
-      <CardContent className="flex h-full items-center space-x-4 py-4">
+      <CardContent className="flex h-full w-full items-center space-x-4 py-4">
         <GameBoard roomId={roomId} />
       </CardContent>
     </>

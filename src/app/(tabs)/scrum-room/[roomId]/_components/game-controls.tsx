@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { IconPlayCard, IconFlagCheck, IconRefresh } from "@tabler/icons-react";
 
 interface Props {
@@ -17,20 +18,12 @@ export default function GameControls({
   busy,
 }: Props) {
   return (
-    <div className="flex gap-3">
+    <div className="flex w-full items-center justify-center lg:justify-start gap-3">
       <Button onClick={startGame} disabled={!!gameId || busy}>
         <IconPlayCard size={16} className="mr-1" />
         Start game
       </Button>
 
-      <Button
-        variant="secondary"
-        onClick={restartGame}
-        disabled={!gameId || busy}
-      >
-        <IconRefresh size={16} className="mr-1" />
-        Restart
-      </Button>
 
       <Button
         variant="destructive"
@@ -38,8 +31,22 @@ export default function GameControls({
         disabled={!gameId || busy}
       >
         <IconFlagCheck size={16} className="mr-1" />
-        End / Show results
+        Show results
       </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+        variant="secondary"
+        onClick={restartGame}
+        disabled={!gameId || busy}
+      >
+        <IconRefresh size={16} className="mr-1" />
+      </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Restart Game
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }

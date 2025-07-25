@@ -16,7 +16,7 @@ export default function VotePanel({ votes, disabled, onVote }: Props) {
           key={value}
           disabled={disabled}
           onClick={() => onVote(value)}
-          className="py-8 text-xl"
+          className=" lg:py-8 text-lg lg:text-xl"
         >
           {value}
         </Button>
