@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 import React from 'react'
 
 const ProfilePage = () => {
@@ -13,8 +14,10 @@ const ProfilePage = () => {
           <CardDescription className='w-full flex flex-col md:flex-row items-center justify-between'>
               <p>This will disconnect your jira account.</p>
             <div className="w-max">
-              <Button variant='destructive'>
-                Sign out
+              <Button variant='destructive' asChild>
+                <Link href='/auth/signout'>
+                  Sign out
+                </Link>
               </Button>
             </div>
           </CardDescription>
