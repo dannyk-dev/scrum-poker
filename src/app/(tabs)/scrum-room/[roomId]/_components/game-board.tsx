@@ -8,9 +8,9 @@ import GameControls from "./game-controls";
 import VotePanel from "./vote-panel";
 import ResultsCard from "./results-card";
 import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
-import { type RoomEvent } from "../../../../../server/api/routers/game";
 import GameSidebar from "@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar";
 import type { IOnVoteEvent } from "@/lib/types/game.types";
+import type { RoomEvent } from "@/lib/types/events.types";
 
 export default function GameBoard({ roomId }: { roomId: string }) {
   const { data: session } = useSession();

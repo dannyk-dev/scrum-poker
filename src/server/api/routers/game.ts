@@ -20,6 +20,7 @@ export type RoomEvent =
   | { type: "end"; gameId: string; results: { userId: string; value: number }[]; estimate: number }
   | { type: "restart"; gameId: string };
 
+
 async function* roomListener(roomId: string, signal: AbortSignal) {
   const sub = getRedisClient().duplicate();
   const channels = Object.values(CH).map((fn) => fn(roomId));
@@ -183,7 +184,6 @@ export const gameRouter = createTRPCRouter({
         value: v.value,
       }));
 
-      // ‑‑‑ Publish event
       await getRedisClient().publish(
         CH.end(input.roomId),
         JSON.stringify({

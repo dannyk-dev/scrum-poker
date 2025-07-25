@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import type { Vote } from "@/server/api/routers/game-router";
-import type { RouterOutputs } from "@/trpc/react";
 import type { RoomUser, Vote } from "prisma/interfaces";
 
 
