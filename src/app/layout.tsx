@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Scrum Poker",
   description: "Vote on sprint points with your team",
   authors: [{name: "Danny kruger", url: "kruger.dkk@gmail.com"}],
+
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
