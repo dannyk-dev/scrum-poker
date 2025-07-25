@@ -7,7 +7,7 @@ const RoomsLayout = ({ children }: PropsWithChildren) => {
 
   return (
     <div className="mx-auto mt-10 flex min-h-screen w-full  xl:w-5/6 items-start justify-center ">
-      <Card className="relative z-10 w-full gap-y-3 shadow-2xl md:h-[80vh] 2xl:h-[85vh]">
+      <Card className="relative z-10 w-full max-w-screen gap-y-3 shadow-2xl md:h-[80vh] 2xl:h-[85vh]">
         {children}
         <BorderBeam
           size={400}

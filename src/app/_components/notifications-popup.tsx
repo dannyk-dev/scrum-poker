@@ -135,7 +135,7 @@ const NotificationsPopup = () => {
           )}
         </div>
       </DialogTrigger>
-      <DialogContent className="max-h-[500px] max-w-full min-w-[550px] overflow-y-auto">
+      <DialogContent className="max-h-[500px] min-w-full max-w-full md:min-w-[550px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex w-full items-center justify-between">
             My Notifications

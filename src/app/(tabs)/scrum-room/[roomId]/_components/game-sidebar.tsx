@@ -113,7 +113,7 @@ const GameSidebar = ({
   }, [votes])
 
   return (
-    <Card className="h-full w-full lg:max-w-4/6 lg:min-w-2/6">
+    <Card className="h-full w-full lg:max-w-2/6 lg:min-w-2/6">
       <CardHeader>
         <CardTitle className="flex w-full items-center justify-between">
           <span>Players</span>

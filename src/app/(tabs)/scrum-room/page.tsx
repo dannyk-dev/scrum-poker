@@ -11,14 +11,14 @@ const ScrumRoomPage = async () => {
 
   return (
     <>
-      <CardHeader className="w-2/6 pr-0">
+      <CardHeader className="w-full lg:w-2/6 md:pr-0">
         <CardTitle className="flex w-full items-center justify-between px-0 font-semibold">
           <span className="w-fit text-xl">Scrum Room</span>
           <CreateRoom />
         </CardTitle>
       </CardHeader>
       <CardContent className="h-full w-full max-w-screen">
-        <div className="grid h-full w-full grid-cols-6">
+        <div className="flex flex-col-reverse gap-y-10 md:gap-y-0 my-6 md:my-0 lg:grid h-full w-full lg:grid-cols-6">
           <div className="col-span-2">
             <Suspense fallback={<RoomsSidebarSkeleton />}>
               <RoomsSidebar rooms={rooms} />
@@ -26,10 +26,10 @@ const ScrumRoomPage = async () => {
           </div>
           <div className="col-span-4">
             <div className="mx-auto flex h-full w-full flex-col items-center justify-center">
-              <h1 className="text-2xl leading-loose">
+              <h1 className="text-lg lg:text-2xl leading-loose">
                 Welcome to scrum poker.
               </h1>
-              <p>Choose a room or create a new one</p>
+              <p className="text-sm">Choose a room or create a new one</p>
             </div>
           </div>
         </div>

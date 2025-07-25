@@ -42,7 +42,7 @@ const CreateRoom = () => {
       setOpen={setOpen}
       width="350px"
       isAction
-      popupClass="top-8 "
+      popupClass="top-8 right-5"
       height="200px"
       showCloseButton={true}
       openChild={
