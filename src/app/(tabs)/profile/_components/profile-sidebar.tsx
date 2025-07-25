@@ -5,10 +5,14 @@ import React from 'react'
 
 const ProfileSidebar = () => {
   return (
-    <InPageSidebar
+    <>
+      <div className="hidden lg:block">
+      <InPageSidebar
       basePath='/profile'
       items={profileLinks}
     />
+    </div>
+    </>
   )
 }
 

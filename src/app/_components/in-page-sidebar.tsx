@@ -23,7 +23,7 @@ export default function InPageSidebar({
   const pathname = usePathname();
 
   return (
-    <div className="mr-[8px] flex h-full w-full lg:min-w-[250px] flex-col justify-between">
+    <div className="mr-[8px] flex h-full w-full lg:w-fit lg:min-w-[250px] flex-col justify-between">
       <div className="flex flex-col gap-[4px] px-0">
         {items.map((item, index) => {
           const { label, href, disabled = false, optionsMenu, badge } = item;

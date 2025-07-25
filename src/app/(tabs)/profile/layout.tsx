@@ -6,7 +6,7 @@ import React, { type PropsWithChildren } from 'react'
 
 const ProfileLayout = ({ children }: PropsWithChildren) => {
   return (
-    <div className="w-3/4 mx-auto min-h-screen flex items-center justify-center">
+    <div className="w-full md:w-3/4 md:mx-auto min-h-screen flex items-center justify-center">
       <Card className='w-full min-h-[450px] max-h-[600px] z-10'>
       <CardHeader>
         <CardTitle className='text-xl font-semibold px-2'>My Profile</CardTitle>
@@ -17,7 +17,7 @@ const ProfileLayout = ({ children }: PropsWithChildren) => {
       <CardContent>
         <div className="flex gap-x-6 items-center">
           <ProfileSidebar />
-        {children}
+          {children}
         </div>
       </CardContent>
     </Card>
