@@ -18,8 +18,8 @@ const ScrumRoomPage = async () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="h-full w-full max-w-screen">
-        <div className="flex flex-col-reverse gap-y-10 md:gap-y-0 my-6 md:my-0 lg:grid h-full w-full lg:grid-cols-6">
-          <div className="col-span-2">
+        <div className="flex flex-col-reverse gap-y-10 md:gap-y-0 my-6 md:my-0 md:grid h-full w-full md:grid-cols-6">
+          <div className="col-span-2 w-full">
             <Suspense fallback={<RoomsSidebarSkeleton />}>
               <RoomsSidebar rooms={rooms} />
             </Suspense>

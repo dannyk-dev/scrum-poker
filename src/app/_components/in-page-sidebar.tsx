@@ -23,8 +23,8 @@ export default function InPageSidebar({
   const pathname = usePathname();
 
   return (
-    <div className="mr-[8px] flex h-full w-full lg:w-fit lg:min-w-[250px] flex-col justify-between">
-      <div className="flex flex-col gap-[4px] px-0">
+    <div className="mr-[8px] flex h-full w-full lg:w-full lg:min-w-[250px] flex-col justify-between">
+      <div className="flex flex-col gap-[4px] px-0 w-full">
         {items.map((item, index) => {
           const { label, href, disabled = false, optionsMenu, badge } = item;
           const fullHref = `${basePath}${href}`;
@@ -75,7 +75,7 @@ function SidebarLink({
           }
         }}
         className={cn(
-          "dark:hover:bg-accent text-secondary-foreground hover:text-foreground w-full flex-1 rounded-md p-2 py-3 text-sm transition-colors hover:bg-neutral-200",
+          "dark:hover:bg-accent  text-secondary-foreground hover:text-foreground w-full flex-1 rounded-md p-2 py-3 text-sm transition-colors hover:bg-neutral-200",
           isActive &&
             "bg-accent text-accent-foreground hover:text-foreground font-medium",
           isDisabled && "cursor-not-allowed text-gray-600 hover:text-gray-700",

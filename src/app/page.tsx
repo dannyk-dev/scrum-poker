@@ -17,7 +17,7 @@ export default async function Home() {
           </p>
           {session ? (
             <Button asChild variant="secondary" size='lg'>
-              <Link href="/scrum-poker">
+              <Link href="/scrum-room">
                 <IconPlayerPlay />
                 Play
               </Link>
