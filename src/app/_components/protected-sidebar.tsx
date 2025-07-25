@@ -4,7 +4,6 @@ import NotificationsPopup from "@/app/_components/notifications-popup";
 import ThemeSwitcher from "@/app/_components/theme-switcher";
 import { FloatingDock } from "@/components/ui/floating-dock";
 import {
-  IconBellRinging,
   IconCards,
   IconHome,
   IconLogin,
@@ -53,7 +52,7 @@ type Props = {
   isAuthorized?: boolean;
 };
 
-const ProtectedSidebar = ({ isAuthorized }: Props) => {
+const ProtectedSidebar = ({ isAuthorized = false }: Props) => {
   const screens = useMemo(() => {
     if (isAuthorized) {
       return [

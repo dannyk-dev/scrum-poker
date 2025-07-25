@@ -10,6 +10,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
 import { redirect } from "next/navigation";
+import { HydrateClient } from "@/trpc/server";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -42,9 +43,11 @@ export default async function RootLayout({
         >
           <SessionProvider session={session}>
             <TRPCReactProvider>
-              {children}
+              <HydrateClient>
+                {children}
 
-              <ProtectedSidebar isAuthorized={Boolean(session)} />
+                <ProtectedSidebar isAuthorized={Boolean(session)} />
+              </HydrateClient>
               <Toaster closeButton position="bottom-right" expand />
             </TRPCReactProvider>
           </SessionProvider>

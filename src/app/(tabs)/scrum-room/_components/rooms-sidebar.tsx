@@ -15,13 +15,13 @@ const RoomsSidebar = async ({ rooms }: Props) => {
   const sidebarLinks = rooms.map((item) => ({
     label: item.name,
     badge: (
-      <div className="flex items-center gap-x-2">
+      <div className="flex items-center gap-x-2" key={item.name}>
         <ScrumMasterBadge room={item} />
         <Badge variant="outline">Users: {item._count.users}</Badge>
       </div>
     ),
     href: `${basePath}/${item.id}`,
-    optionsMenu: <RoomActions room={item} />,
+    optionsMenu: <RoomActions key={item.id} room={item} />,
   }));
 
   return (
