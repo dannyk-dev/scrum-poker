@@ -8,14 +8,13 @@ import GameControls from "./game-controls";
 import VotePanel from "./vote-panel";
 import ResultsCard from "./results-card";
 import { useIsScrumMaster } from "@/hooks/use-is-scrumaster";
-// import type { RoomEvent } from "@/server/api/routers/gameRouter";
 import { type RoomEvent } from "../../../../../server/api/routers/game";
-import type { Vote } from "prisma/interfaces";
 import GameSidebar from "@/app/(tabs)/scrum-room/[roomId]/_components/game-sidebar";
+import type { IOnVoteEvent } from "@/lib/types/game.types";
 
 export default function GameBoard({ roomId }: { roomId: string }) {
   const { data: session } = useSession();
-  const uid = session?.user.id ?? "";
+  const uid = session!.user.id;
 
   const { data: room, isLoading: roomLoading } = api.room.getRoomById.useQuery({
     roomId,
@@ -28,7 +27,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, number>>({});
-  const [results, setResults] = useState<Vote[] | null>(null);
+  const [results, setResults] = useState<IOnVoteEvent[] | null>(null);
 
   useEffect(() => {
     if (!snap?.votes) return;
@@ -44,19 +43,24 @@ export default function GameBoard({ roomId }: { roomId: string }) {
       onData: ({ data }: { data: RoomEvent }) => {
         switch (data.type) {
           case "start":
-            toast('Game started!')
+            toast.success('Game started!')
             setGameId(data.gameId);
             setVotes({});
             setResults(null);
             break;
           case "vote":
-            toast(`${data.username} has submitted a vote`);
-            setVotes((v) => ({ ...v, [data.userId]: data.value }));
+            const voteEvent: IOnVoteEvent = data;
+            if (voteEvent.userId !== uid) {
+              toast.info(`${voteEvent.username} has submitted a vote`)
+            }
 
+
+            setVotes((v) => ({ ...v, [voteEvent.userId]: voteEvent.value }));
             break;
           case "end":
+            toast.success('Game ended!')
             setGameId(null);
-            setResults(data.results as Vote[]);
+            setResults(data.results as IOnVoteEvent[]);
             setVotes({});
             break;
           case "restart":
@@ -114,7 +118,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
           )}
 
           {results ? (
-            <ResultsCard results={results} users={room!.users} />
+            <ResultsCard results={results} users={room!.users} estimate={endGame.data?.estimate} />
           ) : gameId && !isScrumMaster ? (
             <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
           ) : (

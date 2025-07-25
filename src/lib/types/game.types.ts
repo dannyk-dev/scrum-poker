@@ -7,5 +7,12 @@ export interface IGameSnapshot {
 
 export interface IEndGameResponse {
   ok: boolean;
-  results: Vote[];
+  results: { userId: string; value: number }[];
+  estimate: number;
+}
+
+export interface IOnVoteEvent {
+  userId: string;
+  value: number;
+  username: string;
 }

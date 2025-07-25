@@ -1,8 +1,7 @@
-import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { db } from "@/server/db";
 import { getRedisClient } from "@/server/redis";
-import { PrismaClient, Role } from "@prisma/client";
+import { type PrismaClient, Role } from "@prisma/client";
 import { tracked, TRPCError } from "@trpc/server";
 import { endGameSchema, roomQuerySchema, voteSchema } from "@/lib/schemas";
 import type { Game } from "prisma/interfaces";
@@ -17,12 +16,8 @@ const CH = {
 
 export type RoomEvent =
   | { type: "start"; gameId: string }
-  | { type: "vote"; userId: string; value: number }
-  | {
-      type: "end";
-      gameId: string;
-      results: { userId: string; value: number }[];
-    }
+  | { type: "vote"; userId: string; value: number; username: string }
+  | { type: "end"; gameId: string; results: { userId: string; value: number }[]; estimate: number }
   | { type: "restart"; gameId: string };
 
 async function* roomListener(roomId: string, signal: AbortSignal) {
@@ -63,12 +58,15 @@ async function* roomListener(roomId: string, signal: AbortSignal) {
   }
 }
 
-const getActiveGameWithVotes = async (ctxDb: PrismaClient, roomId: string): Promise<Game|null> => {
-  return await ctxDb.game.findFirst({
+const getActiveGameWithVotes = async (
+  ctxDb: PrismaClient,
+  roomId: string,
+): Promise<Game | null> => {
+  return (await ctxDb.game.findFirst({
     where: { roomId, endedAt: null },
     include: { votes: { select: { userId: true, value: true } } },
-  }) as Game;
-}
+  })) as Game;
+};
 
 export const gameRouter = createTRPCRouter({
   snapshot: protectedProcedure
@@ -136,7 +134,11 @@ export const gameRouter = createTRPCRouter({
 
       await getRedisClient().publish(
         CH.vote(input.roomId),
-        JSON.stringify({ userId, value: input.value, username: ru.user.name }),
+        JSON.stringify({
+          userId,
+          value: input.value,
+          username: ctx.session.user.name,
+        }),
       );
       return { ok: true } as const;
     }),
@@ -145,30 +147,54 @@ export const gameRouter = createTRPCRouter({
     .input(endGameSchema)
     .mutation(async ({ ctx, input }): Promise<IEndGameResponse> => {
       const userId = ctx.session.user.id;
-      const g = await db.game.findUnique({
+
+      const game = await db.game.findUnique({
         where: { id: input.gameId },
         select: { scrumMasterId: true },
       });
-      if (!g || g.scrumMasterId !== userId)
-        throw new TRPCError({ code: "FORBIDDEN" });
+      if (!game || game.scrumMasterId !== userId)
+        throw new TRPCError({ code: "FORBIDDEN", message: 'Only the scrum master can vote' });
 
       await db.game.update({
         where: { id: input.gameId },
         data: { endedAt: new Date() },
       });
 
-      const results = await db.vote.findMany({
+      const votes = await db.vote.findMany({
         where: { gameId: input.gameId },
-        include: {
-          user: true
-        }
+        include: { user: { select: { id: true, name: true } } },
       });
 
+      const deck: number[] = [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
+      const nums: number[] = votes.map((v) => v.value).sort((a, b) => a - b);
+
+      const median: number = nums.length
+        ? (nums[Math.floor((nums.length - 1) / 2)] ?? 0)
+        : 0;
+
+      const estimate: number = deck.reduce<number>(
+        (closest, card) =>
+          Math.abs(card - median) < Math.abs(closest - median) ? card : closest,
+        deck[0],
+      );
+
+      const slimResults = votes.map((v) => ({
+        userId: v.userId,
+        value: v.value,
+      }));
+
+      // ‑‑‑ Publish event
       await getRedisClient().publish(
         CH.end(input.roomId),
-        JSON.stringify({ gameId: input.gameId, results }),
+        JSON.stringify({
+          type: "end",
+          gameId: input.gameId,
+          results: slimResults,
+          estimate,
+        }),
       );
-      return { ok: true, results };
+
+      return { ok: true, results: slimResults, estimate };
     }),
 
   restartGame: protectedProcedure
