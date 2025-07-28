@@ -74,7 +74,7 @@ export function PopoverForm({
         >
           <Button
             variant="ghost"
-            className="rounded-lg font-sans text-sm font-medium"
+            className="rounded-lg font-sans text-sm font-medium py-0"
             asChild
           >
             <motion.span layoutId={`${title}-title`}>
@@ -93,7 +93,7 @@ export function PopoverForm({
         <motion.button
           layoutId={`${title}-wrapper`}
           onClick={() => setOpen(true)}
-          className="flex h-9 cursor-pointer items-center text-sm font-medium outline-none"
+          className="flex h-fit cursor-pointer items-center text-sm font-medium outline-none"
         >
           <motion.span layoutId={`${title}-title`}>
             {icon && preferIcon ? icon : title}

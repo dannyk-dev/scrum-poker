@@ -8,9 +8,9 @@ import React, { useState, type ReactNode } from 'react'
 type Theme = "light" | "dark" | "system";
 
 const ThemeMap: Record<Theme, ReactNode> = {
-  dark: <IconMoon className='w-full h-full' />,
-  light: <IconSun className='w-full h-full' />,
-  system: <IconDeviceDesktop className='w-full h-full' />
+  dark: <IconMoon className='w-full h-fit md:h-full' />,
+  light: <IconSun className='w-full md:h-full' />,
+  system: <IconDeviceDesktop className='w-full md:h-full' />
 }
 
 const ThemeSwitcher = () => {
