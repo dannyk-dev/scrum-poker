@@ -125,9 +125,10 @@ export default function GameBoard({ roomId }: { roomId: string }) {
             <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
           ) : (
             <p className="text-muted-foreground text-center mt-4 md:mt-0">
-              {isScrumMaster
-                ? "Press “Start game” to begin."
-                : "Waiting for Scrum‑Master to start…"}
+              {isScrumMaster && !gameId && (
+                "Press “Start game” to begin."
+              )}
+              {!isScrumMaster && "Waiting for Scrum‑Master to start…"}
             </p>
           )}
         </div>
