@@ -29,6 +29,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
   const [gameId, setGameId] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, number>>({});
   const [results, setResults] = useState<IOnVoteEvent[] | null>(null);
+  const [estimate, setEstimate] = useState<number|null>(null);
 
   useEffect(() => {
     if (!snap?.votes) return;
@@ -48,6 +49,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
             setGameId(data.gameId);
             setVotes({});
             setResults(null);
+            setEstimate(null);
             break;
           case "vote":
             const voteEvent: IOnVoteEvent = data;
@@ -63,12 +65,14 @@ export default function GameBoard({ roomId }: { roomId: string }) {
             toast.success('Game ended!')
             setGameId(null);
             setResults(data.results as IOnVoteEvent[]);
+            setEstimate(data.estimate);
             setVotes({});
             break;
           case "restart":
             setGameId(data.gameId);
             setVotes({});
             setResults(null);
+            setEstimate(null);
             break;
         }
       },
@@ -120,7 +124,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
           )}
 
           {results ? (
-            <ResultsCard results={results} users={room!.users} estimate={endGame.data?.estimate} />
+            <ResultsCard results={results} users={room!.users} estimate={estimate} />
           ) : gameId && !isScrumMaster ? (
             <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
           ) : (

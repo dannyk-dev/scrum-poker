@@ -6,7 +6,7 @@ import type { RoomUser } from "prisma/interfaces";
 
 interface Props {
   results: IOnVoteEvent[];
-  estimate?: number;
+  estimate?: number|null;
   users: RoomUser[];
 }
 
@@ -16,7 +16,7 @@ export default function ResultsCard({ results, users, estimate }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Results • Avg: {estimate?.toFixed(1) ?? 0}</CardTitle>
+        <CardTitle>Results • Avg: {estimate?.toFixed(1)}</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-3 gap-4">
         {users.map((u) => (
