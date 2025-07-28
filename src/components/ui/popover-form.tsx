@@ -11,6 +11,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useMediaQuery } from "@uidotdev/usehooks";
 
 type PopoverFormProps = {
   open: boolean;
@@ -27,6 +28,7 @@ type PopoverFormProps = {
   showTitleBeforeChild?: boolean;
   popupClass?: string;
   isAction?: boolean;
+  mobilePopupClass?: string;
   customTrigger?: (args: {
     onClick: () => void;
     layoutId?: string;
@@ -45,6 +47,7 @@ export function PopoverForm({
   showCloseButton = false,
   preferIcon = true,
   popupClass,
+  mobilePopupClass,
   icon,
   showTitleBeforeChild = false,
   isAction = false,
@@ -52,6 +55,7 @@ export function PopoverForm({
 }: PopoverFormProps) {
   const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref, () => setOpen(false));
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   return (
     <div
@@ -103,6 +107,7 @@ export function PopoverForm({
             className={cn(
               "bg-muted absolute z-50 overflow-hidden p-1 shadow-[0_0_0_1px_rgba(0,0,0,0.08),0px_1px_2px_rgba(0,0,0,0.04)] outline-none",
               popupClass,
+              isMobile && mobilePopupClass
             )}
             ref={ref}
             style={{ borderRadius: 10, width, height }}

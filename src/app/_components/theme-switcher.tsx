@@ -27,7 +27,8 @@ const ThemeSwitcher = () => {
         open={open}
         setOpen={setOpen}
         width="200px"
-        popupClass='-top-24'
+        popupClass='md:-top-24'
+        mobilePopupClass="right-10"
         height="175px"
         showCloseButton={true}
         openChild={

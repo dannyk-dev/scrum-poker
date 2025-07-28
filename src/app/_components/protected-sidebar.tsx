@@ -44,7 +44,7 @@ const tabLinks = [
   },
   {
     title: "Theme",
-    component: <ThemeSwitcher />,
+    icon: <ThemeSwitcher />,
   },
 ];
 
