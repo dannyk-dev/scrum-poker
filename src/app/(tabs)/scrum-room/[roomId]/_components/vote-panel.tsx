@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { cn } from "../../../../../lib/utils";
 
 const cards = [0, 1, 2, 3, 5, 8, 13, 21, 34];
 
@@ -16,7 +17,8 @@ export default function VotePanel({ votes, disabled, onVote }: Props) {
           key={value}
           disabled={disabled}
           onClick={() => onVote(value)}
-          className=" lg:py-8 text-lg lg:text-xl"
+          variant={Boolean(votes[value]) ? "default" : "outline"}
+          className={cn("text-lg lg:py-8 lg:text-xl")}
         >
           {value}
         </Button>
