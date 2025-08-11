@@ -10,7 +10,7 @@ interface Props {
   userId: string;
 }
 
-export default function VotePanel({ votes, disabled, onVote }: Props) {
+export default function VotePanel({ votes, disabled, onVote, userId }: Props) {
   return (
     <div className="grid grid-cols-3 gap-4">
       {cards.map((value) => (
