@@ -22,7 +22,7 @@ export default function VotePanel({ votes, disabled, onVote }: Props) {
           variant='outline'
           className={cn("text-lg lg:py-8 lg:text-xl")}
         >
-          {value}
+          {value === 0 ? '?' : value}
         </Button>
       ))}
     </div>

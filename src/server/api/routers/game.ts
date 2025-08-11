@@ -162,8 +162,8 @@ export const gameRouter = createTRPCRouter({
         include: { user: { select: { id: true, name: true } } },
       });
 
-      const deck: number[] = [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
-      const nums: number[] = votes.map((v) => v.value).sort((a, b) => a - b);
+      const deck: number[] = [1, 2, 3, 5, 8, 13, 20, 40, 100];
+      const nums: number[] = votes.map((v) => v.value).filter((v) => v > 0).sort((a, b) => a - b);
 
       const median: number = nums.length
         ? (nums[Math.floor((nums.length - 1) / 2)] ?? 0)
