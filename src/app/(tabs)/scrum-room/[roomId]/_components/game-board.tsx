@@ -126,7 +126,7 @@ export default function GameBoard({ roomId }: { roomId: string }) {
           {results ? (
             <ResultsCard results={results} users={room!.users} estimate={estimate} />
           ) : gameId && !isScrumMaster ? (
-            <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} />
+            <VotePanel votes={votes} disabled={hasVoted} onVote={handleVote} userId={uid} />
           ) : (
             <p className="text-muted-foreground text-center mt-4 md:mt-0">
               {isScrumMaster && !gameId && (
