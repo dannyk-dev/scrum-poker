@@ -132,7 +132,7 @@ const GameSidebar = ({
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="h-full">
+      <CardContent className="h-full lg:overflow-y-auto">
         {isLoading ? (
           <div className="w-full flex items-center ">
             <Spinner className="mx-auto " />
