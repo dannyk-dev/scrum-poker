@@ -14,5 +14,5 @@ export const gameQuerySchema = z.object({
 
 export const endGameSchema = gameQuerySchema.merge(roomQuerySchema);
 export const voteSchema = endGameSchema.extend({
-  value: z.number().int().positive()
+  value: z.number().refine((val) => val >= 0)
 });

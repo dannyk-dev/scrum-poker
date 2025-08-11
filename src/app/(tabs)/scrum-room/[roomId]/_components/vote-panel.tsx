@@ -16,7 +16,6 @@ export default function VotePanel({ votes, disabled, onVote, userId }: Props) {
       {cards.map((value) => (
         <Button
           key={value}
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           disabled={votes[userId] === value}
           onClick={() => onVote(value)}
           variant='outline'
