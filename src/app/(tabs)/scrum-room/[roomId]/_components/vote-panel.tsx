@@ -7,6 +7,7 @@ interface Props {
   votes: Record<string, number>;
   disabled: boolean;
   onVote: (value: number) => void;
+  userId: string;
 }
 
 export default function VotePanel({ votes, disabled, onVote }: Props) {
@@ -15,9 +16,10 @@ export default function VotePanel({ votes, disabled, onVote }: Props) {
       {cards.map((value) => (
         <Button
           key={value}
-          disabled={disabled}
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          disabled={votes[userId] === value}
           onClick={() => onVote(value)}
-          variant={Boolean(votes[value]) ? "default" : "outline"}
+          variant='outline'
           className={cn("text-lg lg:py-8 lg:text-xl")}
         >
           {value}

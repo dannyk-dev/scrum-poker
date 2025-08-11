@@ -36,7 +36,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
-      <body className="bg-background min-h-screen overflow-hidden antialiased  relative">
+      <body className="bg-background min-h-screen overflow-x-hidden antialiased  relative">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
