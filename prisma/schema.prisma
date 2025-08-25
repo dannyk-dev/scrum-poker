@@ -10,7 +10,7 @@ generator typescriptInterfaces {
 }
 
 datasource db {
-    provider = "mysql"
+    provider = "postgresql"
     // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
     // Further reading:
     // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
@@ -26,8 +26,8 @@ model Account {
     type                     String
     provider                 String
     providerAccountId        String
-    refresh_token            String? @db.LongText
-    access_token             String? @db.LongText
+    refresh_token            String?
+    access_token             String?
     expires_at               Int?
     token_type               String?
     scope                    String?
