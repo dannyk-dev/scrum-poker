@@ -63,9 +63,21 @@ export class JiraClient {
   private ua: string;
 
   constructor(opts: JiraClientOptions) {
+    if (!opts?.baseUrl) throw new Error("JiraClient: baseUrl required");
+    if (!opts?.accessToken) throw new Error("JiraClient: accessToken required");
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this.token = opts.accessToken;
     this.ua = opts.userAgent ?? "scrum-poker/1.0";
+  }
+
+  // Test-only helper. Do NOT use in app code.
+  static fromEnvForTests(): JiraClient {
+    const baseUrl = process.env.JIRA_BASE_URL;
+    const accessToken = process.env.JIRA_ACCESS_TOKEN;
+    if (!baseUrl || !accessToken) {
+      throw new Error("Set JIRA_BASE_URL and JIRA_ACCESS_TOKEN for tests");
+    }
+    return new JiraClient({ baseUrl, accessToken });
   }
 
   private async request<T>(
@@ -321,13 +333,6 @@ export class JiraClient {
     await this.request("DELETE", `/rest/api/3/issue/${issueKeyOrId}/votes`);
   }
 
-  // --------------- Story Points helpers ---------------
-  /**
-   * Resolve the Story Points field id.
-   * Strategy:
-   *  1) Board config estimation field (Agile API)
-   *  2) Fallback to searching fields by common display names
-   */
   async resolveStoryPointsFieldId(boardId?: number): Promise<string> {
     // Try board estimation config
     if (boardId) {
