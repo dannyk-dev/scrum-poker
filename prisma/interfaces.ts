@@ -29,6 +29,12 @@ export interface Session {
   user?: User;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
 export interface User {
   id: string;
   name: string | null;

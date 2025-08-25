@@ -41,6 +41,34 @@ model Session {
   @@index([userId], map: "Session_userId_fkey")
 }
 
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  atlassianCloudId String   @unique // e.g. "d1234-...-abcd" from Atlassian accessible-resources
+  baseUrl          String?  // e.g. https://yourco.atlassian.net
+  avatarUrl        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  users        UserOrganization[]
+  rooms        Room[]
+  invitations  Invitation[]
+}
+
+model UserOrganization {
+  organizationId String
+  userId         String
+  role           OrgRole   @default(MEMBER)
+  joinedAt       DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String?
@@ -54,6 +82,9 @@ model User {
   rooms         RoomUser[]
   sessions      Session[]
   votes         Vote[]
+
+  organizations UserOrganization[]
+  @@index([id, email])
 }
 
 model VerificationToken {
@@ -71,6 +102,10 @@ model Room {
   games       Game[]
   invitations Invitation[]
   users       RoomUser[]
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model RoomUser {
@@ -97,8 +132,12 @@ model Invitation {
   invitedBy   User      @relation("UserInvites", fields: [invitedById], references: [id], map: "Invitation_invitedBy_relation_fkey")
   room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade, map: "Invitation_roomId_relation_fkey")
 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   @@index([invitedById], map: "Invitation_invitedById_fkey")
   @@index([roomId], map: "Invitation_roomId_fkey")
+    @@index([organizationId])
 }
 
 model Notification {
@@ -148,4 +187,10 @@ enum Role {
 enum NotificationType {
   GameStarted
   Invitation
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
 }

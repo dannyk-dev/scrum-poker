@@ -11,6 +11,7 @@ type Item = {
   disabled?: boolean;
   optionsMenu?: React.ReactNode;
   badge?: React.ReactNode;
+  icon?: React.ReactNode;
 };
 
 export default function InPageSidebar({
@@ -26,7 +27,7 @@ export default function InPageSidebar({
     <div className="mr-[8px] flex h-full w-full lg:w-full lg:min-w-[250px] flex-col justify-between">
       <div className="flex flex-col gap-[4px] px-0 w-full">
         {items.map((item, index) => {
-          const { label, href, disabled = false, optionsMenu, badge } = item;
+          const { label, href, disabled = false, optionsMenu, badge, icon } = item;
           const fullHref = `${basePath}${href}`;
           const isActive =
             href === "/"
@@ -41,6 +42,7 @@ export default function InPageSidebar({
               isDisabled={disabled}
               optionsMenu={optionsMenu}
               badge={badge}
+              icon={icon}
             />
           );
         })}
@@ -56,6 +58,7 @@ function SidebarLink({
   isDisabled,
   optionsMenu,
   badge,
+  icon
 }: {
   href: string;
   label: string;
@@ -63,6 +66,7 @@ function SidebarLink({
   isDisabled: boolean;
   optionsMenu?: React.ReactNode;
   badge?: React.ReactNode;
+  icon?: React.ReactNode;
 }) {
   return (
     <div className="flex w-full items-center justify-between gap-x-0">
@@ -87,6 +91,7 @@ function SidebarLink({
             badge && "justify-between px-2",
           )}
         >
+          {icon}
           <div className="leading-none">{label}</div>
           {badge}
         </div>

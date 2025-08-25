@@ -7,11 +7,11 @@ const ProfileSidebar = () => {
   return (
     <>
       <div className="hidden lg:block">
-      <InPageSidebar
-      basePath='/profile'
-      items={profileLinks}
-    />
-    </div>
+          <InPageSidebar
+            basePath='/settings'
+            items={profileLinks}
+          />
+      </div>
     </>
   )
 }
