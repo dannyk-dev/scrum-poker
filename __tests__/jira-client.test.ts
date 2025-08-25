@@ -193,7 +193,7 @@ describe("JiraClient", () => {
     };
     mockFetch
       .mockResolvedValueOnce(mkRes(200, page))
-      .mockResolvedValueOnce(mkRes(200, { issues: [] })); // second page empty
+      .mockResolvedValueOnce(mkRes(200, { issues: [] }));
 
     const out = await client.searchIssues('project = "P"', [
       "summary",
@@ -203,7 +203,7 @@ describe("JiraClient", () => {
 
     const u = new URL(mockFetch.mock.calls[0][0] as string);
     expect(u.searchParams.get("fields")).toBe("summary,assignee");
-    expect(u.searchParams.get("jql")).toBe('project = "P"'); // avoid encoding asserts
+    expect(u.searchParams.get("jql")).toBe('project = "P"');
   });
 
   test("getSprintIssues works", async () => {
@@ -286,9 +286,8 @@ describe("JiraClient", () => {
   });
 
   test("resolveStoryPointsFieldId fallback to fields scan", async () => {
-    // Force board-config failure then fields success; pass boardId so try/catch path runs.
     mockFetch
-      .mockResolvedValueOnce(mkRes(500, { err: "no cfg" })) // board config
+      .mockResolvedValueOnce(mkRes(500, { err: "no cfg" }))
       .mockResolvedValueOnce(
         mkRes(200, [
           { id: "customfield_99", name: "Other" },
@@ -340,7 +339,6 @@ describe("JiraClient", () => {
     expect((mockFetch.mock.calls[4][1] as RequestInit).method).toBe("PUT");
   });
 
-  // — replace the whole test —
   test("getPlanningSnapshot returns boards, active sprint and its issues", async () => {
     const boards = {
       values: [{ id: 99, name: "Board", type: "scrum" }],
@@ -362,9 +360,9 @@ describe("JiraClient", () => {
     };
 
     mockFetch
-      .mockResolvedValueOnce(mkRes(200, boards)) // listBoards (1 page)
-      .mockResolvedValueOnce(mkRes(200, sprintPage)) // getActiveSprint -> listSprints (1 page)
-      .mockResolvedValueOnce(mkRes(200, issues)); // getSprintIssues (1 page)
+      .mockResolvedValueOnce(mkRes(200, boards))
+      .mockResolvedValueOnce(mkRes(200, sprintPage))
+      .mockResolvedValueOnce(mkRes(200, issues));
 
     const snap = await client.getPlanningSnapshot("PRJ");
     expect(snap.board?.id).toBe(99);
