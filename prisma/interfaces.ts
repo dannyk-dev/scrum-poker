@@ -17,8 +17,8 @@ export interface Account {
   scope: string | null;
   id_token: string | null;
   session_state: string | null;
-  user?: User;
   refresh_token_expires_in: number | null;
+  user?: User;
 }
 
 export interface Session {
@@ -36,12 +36,12 @@ export interface User {
   emailVerified: Date | null;
   image: string | null;
   accounts?: Account[];
-  sessions?: Session[];
-  rooms?: RoomUser[];
-  votes?: Vote[];
+  Game?: Game[];
   invitations?: Invitation[];
   notifications?: Notification[];
-  Game?: Game[];
+  rooms?: RoomUser[];
+  sessions?: Session[];
+  votes?: Vote[];
 }
 
 export interface VerificationToken {
@@ -54,62 +54,62 @@ export interface Room {
   id: string;
   name: string;
   createdAt: Date;
-  users?: RoomUser[];
   games?: Game[];
   invitations?: Invitation[];
+  users?: RoomUser[];
 }
 
 export interface RoomUser {
-  user?: User;
   userId: string;
-  room?: Room;
   roomId: string;
   role: Role;
   joinedAt: Date;
+  room?: Room;
+  user?: User;
 }
 
 export interface Invitation {
   id: string;
-  room?: Room;
   roomId: string;
   email: string;
   token: string;
-  invitedBy?: User;
   invitedById: string;
   accepted: boolean;
   createdAt: Date;
   acceptedAt: Date | null;
+  invitedBy?: User;
+  room?: Room;
 }
 
 export interface Notification {
   id: string;
-  user?: User;
   userId: string;
   type: NotificationType;
   message: string;
   data: JsonValue | null;
   read: boolean;
   createdAt: Date;
+  user?: User;
 }
 
 export interface Game {
   id: string;
-  room?: Room;
   roomId: string;
-  scrumMaster?: User;
   scrumMasterId: string;
   createdAt: Date;
   endedAt: Date | null;
+  room?: Room;
+  scrumMaster?: User;
   votes?: Vote[];
 }
 
 export interface Vote {
   id: number;
-  game?: Game;
   gameId: string;
-  user?: User;
   userId: string;
   value: number;
+  game?: Game;
+  user?: User;
 }
 
 type JsonValue = string | number | boolean | { [key in string]?: JsonValue } | Array<JsonValue> | null;
