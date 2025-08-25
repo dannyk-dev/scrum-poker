@@ -1,36 +1,33 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
-// import DiscordProvider from "next-auth/providers/discord";
-import Atlassian from 'next-auth/providers/atlassian'
+import Atlassian from "next-auth/providers/atlassian";
+// import { OrgRole } from "@prisma/client";
+import type { OrgRole } from "prisma/interfaces";
 
 import { db } from "@/server/db";
+// Ensure db is correctly typed and userOrganization exists on db
 
 /**
- * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
- * object and keep type safety.
- *
- * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
+ * Module augmentation for `next-auth` types.
  */
 declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      // ...other properties
-      // role: UserRole;
     } & DefaultSession["user"];
   }
-
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
 }
 
-/**
- * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
- *
- * @see https://next-auth.js.org/configuration/options
- */
+type AccessibleResource = {
+  id: string; // Atlassian cloudId
+  name?: string;
+  url?: string; // https://<site>.atlassian.net
+  avatarUrl?: string;
+  scopes?: string[];
+};
+
 export const authConfig = {
   trustHost: true,
   secret: process.env.AUTH_SECRET!,
@@ -38,48 +35,77 @@ export const authConfig = {
     Atlassian({
       clientId: process.env.ATLASSIAN_CLIENT_ID!,
       clientSecret: process.env.ATLASSIAN_CLIENT_SECRET!,
-
       authorization: {
-
         params: {
           scope:
             "write:jira-work read:jira-work read:jira-user offline_access read:me",
-          prompt: "consent"
+          prompt: "consent",
         },
       },
-    })
-    // DiscordProvider,
-    /**
-     * ...add more providers here.
-     *
-     * Most other providers require a bit more work than the Discord provider. For example, the
-     * GitHub provider requires you to add the `refresh_token_expires_in` field to the Account
-     * model. Refer to the NextAuth.js docs for the provider you want to use. Example:
-     *
-     * @see https://next-auth.js.org/providers/github
-     */
+    }),
   ],
   adapter: PrismaAdapter(db),
-
-
   callbacks: {
-
-    // redirect: ({ url, baseUrl }) => {
-    //   // Allows relative callback URLs
-    //   if (url.startsWith("/")) return `${baseUrl}${url}`;
-    //   // Allows callback URLs on the same origin
-    //   else if (new URL(url).origin === baseUrl) return url;
-    //   return baseUrl;
-
-    // },
-
     session: ({ session, user }) => ({
-
       ...session,
       user: {
         ...session.user,
         id: user.id,
       },
     }),
+  },
+  events: {
+    async signIn({ user, account }) {
+      try {
+        if (account?.provider !== "atlassian" || !account.access_token) return;
+
+        const res = await fetch(
+          "https://api.atlassian.com/oauth/token/accessible-resources",
+          {
+            headers: {
+              Authorization: `Bearer ${account.access_token}`,
+              Accept: "application/json",
+            },
+          },
+        );
+        if (!res.ok) return;
+
+        const resources = (await res.json()) as AccessibleResource[];
+        for (const r of resources) {
+          if (!r?.id) continue;
+
+          const org = await db.organization.upsert({
+            where: { atlassianCloudId: r.id },
+            create: {
+              atlassianCloudId: r.id,
+              name: r.name ?? "Atlassian site",
+              baseUrl: r.url ?? null,
+              avatarUrl: r.avatarUrl ?? null,
+            },
+            update: {
+              name: r.name ?? undefined,
+              baseUrl: r.url ?? undefined,
+              avatarUrl: r.avatarUrl ?? undefined,
+            },
+          });
+          await db.userOrganization.upsert({
+            where: {
+              organizationId_userId: {
+                organizationId: org.id,
+                userId: user.id!,
+              },
+            },
+            update: {},
+            create: {
+              organizationId: org.id,
+              userId: user.id!,
+              role: "MEMBER" as OrgRole,
+            },
+          });
+        }
+      } catch {
+        // swallow; auth flow must not break on org sync issues
+      }
+    },
   },
 } satisfies NextAuthConfig;

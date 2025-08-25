@@ -54,6 +54,8 @@ model Organization {
   users        UserOrganization[]
   rooms        Room[]
   invitations  Invitation[]
+
+  @@index([atlassianCloudId])
 }
 
 model UserOrganization {

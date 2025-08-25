@@ -62,7 +62,7 @@ const ProtectedSidebar = ({ isAuthorized = false }: Props) => {
           icon: (
             <IconUserCircle className="h-full w-full text-neutral-500 dark:text-neutral-300" />
           ),
-          href: "/profile",
+          href: "/settings",
         },
       ];
     } else {

@@ -4,6 +4,8 @@ export type Role = "SCRUM_MASTER" | "USER";
 
 export type NotificationType = "GameStarted" | "Invitation";
 
+export type OrgRole = "OWNER" | "ADMIN" | "MEMBER";
+
 export interface Account {
   id: string;
   userId: string;
@@ -32,7 +34,23 @@ export interface Session {
 export interface Organization {
   id: string;
   name: string;
+  atlassianCloudId: string;
+  baseUrl: string | null;
+  avatarUrl: string | null;
   createdAt: Date;
+  updatedAt: Date;
+  users?: UserOrganization[];
+  rooms?: Room[];
+  invitations?: Invitation[];
+}
+
+export interface UserOrganization {
+  organizationId: string;
+  userId: string;
+  role: OrgRole;
+  joinedAt: Date;
+  organization?: Organization;
+  user?: User;
 }
 
 export interface User {
@@ -48,6 +66,7 @@ export interface User {
   rooms?: RoomUser[];
   sessions?: Session[];
   votes?: Vote[];
+  organizations?: UserOrganization[];
 }
 
 export interface VerificationToken {
@@ -63,6 +82,8 @@ export interface Room {
   games?: Game[];
   invitations?: Invitation[];
   users?: RoomUser[];
+  organizationId: string;
+  organization?: Organization;
 }
 
 export interface RoomUser {
@@ -85,6 +106,8 @@ export interface Invitation {
   acceptedAt: Date | null;
   invitedBy?: User;
   room?: Room;
+  organizationId: string;
+  organization?: Organization;
 }
 
 export interface Notification {
