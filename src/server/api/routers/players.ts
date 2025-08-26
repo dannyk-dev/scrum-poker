@@ -87,10 +87,19 @@ export const playerRouter = createTRPCRouter({
           const token = crypto.randomBytes(16).toString("hex");
           const invitation = await db.invitation.create({
             data: {
-              roomId: input.roomId,
+              room: {
+                connect: {
+                  id: input.roomId
+                }
+              },
               email,
               token,
-              invitedById: ctx.session.user.id,
+              // invitedById: ctx.session.user.id,
+              invitedBy: {
+                connect: {
+                  id: ctx.session.user.id
+                }
+              }
             },
             include: {
               invitedBy: true,
@@ -105,7 +114,11 @@ export const playerRouter = createTRPCRouter({
                 type: "Invitation",
                 message: `Invitiation received.`,
                 data: {
-                  roomId: input.roomId,
+                  room: {
+                    connect: {
+                      id: input.roomId
+                    }
+                  },
                   token,
                   roomName: room.name,
                   inviteBy: invitation.invitedBy.name,

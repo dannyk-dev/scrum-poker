@@ -4,16 +4,23 @@ import CreateRoom from "./_components/create-room";
 import RoomsSidebarSkeleton from "./_components/rooms-sidebar-skeleton";
 import RoomsSidebar from "./_components/rooms-sidebar";
 import { trpc } from "@/trpc/server";
+import { auth } from "@/server/auth";
+import { Badge } from "@/components/ui/badge";
 
 const ScrumRoomPage = async () => {
   void await trpc.player.getPlayerEmails.prefetch();
-  const rooms = await trpc.room.getRooms();
+  const {rooms, organization} = await trpc.room.getRooms();
 
   return (
     <>
       <CardHeader className="w-full lg:w-2/6 md:pr-0">
         <CardTitle className="flex w-full items-center justify-between px-0 font-semibold">
-          <span className="w-fit text-xl">Scrum Room</span>
+          <div className="flex w-fit gap-x-4">
+            <span className="text-xl">Scrum Room</span>
+            <Badge variant='default' className="font-semibold">
+              {organization?.name}
+            </Badge>
+          </div>
           <CreateRoom />
         </CardTitle>
       </CardHeader>

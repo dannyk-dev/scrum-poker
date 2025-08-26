@@ -107,6 +107,7 @@ const InvitePlayers = ({
                       <ComboboxUsers
                         value={field.value}
                         onValueChange={field.onChange}
+
                       />
                     </FormControl>
                   </FormItem>

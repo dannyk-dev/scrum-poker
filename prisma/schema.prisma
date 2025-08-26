@@ -44,26 +44,111 @@ model Session {
 model Organization {
   id               String   @id @default(cuid())
   name             String
-  atlassianCloudId String   @unique // e.g. "d1234-...-abcd" from Atlassian accessible-resources
-  baseUrl          String?  // e.g. https://yourco.atlassian.net
+  atlassianCloudId String   @unique
+  baseUrl          String?
   avatarUrl        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  // Relations
-  users        UserOrganization[]
-  rooms        Room[]
-  invitations  Invitation[]
+  users UserOrganization[]
+  rooms Room[]
+
+  // inverse side of "ActiveOrg" on User
+  User User[] @relation("ActiveOrg")
+
+
+  GameSettings GameSettings?
+  pointPresets ScrumPointPreset[]
 
   @@index([atlassianCloudId])
-  User User[] @relation("ActiveOrg")
+}
+
+model GameSettings {
+  id String @id @default(cuid())
+
+  autoShowResults               Boolean @default(false)
+  autoShowResultsTime           Decimal @default(0)
+  onlyScrumMasterCanShowResults Boolean @default(false)
+  lockVotes                     Boolean @default(true)
+  notifyOnVote                  Boolean @default(true)
+  notifyOnJoin                  Boolean @default(true)
+  persistentLeave               Boolean @default(false)
+
+  scrumPoints ScrumPoint[]
+
+  activePresetId String?
+  activePreset   ScrumPointPreset? @relation(fields: [activePresetId], references: [id], onDelete: SetNull)
+
+  organizationId    String  @unique
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model ScrumPoint {
+  id        String         @id @default(cuid())
+  value     Int
+  timeStart Int
+  timeEnd   Int
+  valueUnit ScrumPointUnit
+  position  Int            @default(0)
+
+  gameSettingsId String
+  gameSettings   GameSettings @relation(fields: [gameSettingsId], references: [id], onDelete: Cascade)
+
+  votes Vote[] // backref from Vote
+
+  @@unique([gameSettingsId, value]) // one value per settings
+  @@index([gameSettingsId])
+  @@index([position])
+}
+
+enum ScrumPointUnit {
+  MINUTE
+  HOUR
+  DAY
+  MONTH
+}
+
+model ScrumPointPreset {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  description     String?
+  isDefault       Boolean  @default(false)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  items         ScrumPointPresetItem[]
+  settingsUsing GameSettings[] // inverse of GameSettings.activePreset
+
+  @@unique([organizationId, name]) // unique preset name per org
+  @@index([organizationId])
+}
+
+model ScrumPointPresetItem {
+  id        String         @id @default(cuid())
+  presetId  String
+  value     Int
+  timeStart Int
+  timeEnd   Int
+  valueUnit ScrumPointUnit
+  position  Int            @default(0)
+
+  preset ScrumPointPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@unique([presetId, value]) // one value per preset
+  @@index([presetId])
+  @@index([position])
 }
 
 model UserOrganization {
   organizationId String
   userId         String
-  role           OrgRole   @default(MEMBER)
-  joinedAt       DateTime  @default(now())
+  role           OrgRole  @default(MEMBER)
+  joinedAt       DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -86,9 +171,10 @@ model User {
   sessions      Session[]
   votes         Vote[]
 
-  organizations UserOrganization[]
-   activeOrganizationId String?
-  activeOrganization   Organization?    @relation("ActiveOrg", fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  ScrumPointPreset     ScrumPointPreset[]
+  organizations        UserOrganization[]
+  activeOrganizationId String?
+  activeOrganization   Organization?      @relation("ActiveOrg", fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 
   @@index([id, email])
 }
@@ -102,12 +188,12 @@ model VerificationToken {
 }
 
 model Room {
-  id          String       @id @default(cuid())
-  name        String
-  createdAt   DateTime     @default(now())
-  games       Game[]
-  invitations Invitation[]
-  users       RoomUser[]
+  id             String       @id @default(cuid())
+  name           String
+  createdAt      DateTime     @default(now())
+  games          Game[]
+  invitations    Invitation[]
+  users          RoomUser[]
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -138,12 +224,8 @@ model Invitation {
   invitedBy   User      @relation("UserInvites", fields: [invitedById], references: [id], map: "Invitation_invitedBy_relation_fkey")
   room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade, map: "Invitation_roomId_relation_fkey")
 
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
   @@index([invitedById], map: "Invitation_invitedById_fkey")
   @@index([roomId], map: "Invitation_roomId_fkey")
-    @@index([organizationId])
 }
 
 model Notification {
@@ -177,11 +259,18 @@ model Vote {
   id     Int    @id @default(autoincrement())
   gameId String
   userId String
-  value  Int
-  game   Game   @relation(fields: [gameId], references: [id])
-  user   User   @relation(fields: [userId], references: [id], map: "Vote_userId_relation_fkey")
+
+  scrumPointId String?
+  scrumPoint   ScrumPoint? @relation(fields: [scrumPointId], references: [id], onDelete: Restrict)
+
+  // Denormalized numeric value for analytics stability
+//   pointValue Int
+
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id], map: "Vote_userId_relation_fkey")
 
   @@unique([gameId, userId])
+  @@index([scrumPointId])
   @@index([userId], map: "Vote_userId_fkey")
 }
 

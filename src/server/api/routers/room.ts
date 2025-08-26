@@ -9,20 +9,37 @@ import z from "zod";
 export const roomRouter = createTRPCRouter({
   getRooms: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
+    const orgId = ctx.orgId
 
-    return await ctx.db.room.findMany({
+    const organization = await ctx.db.organization.findUnique({
+      where: {
+        id: orgId!
+      }
+    });
+
+    if (!organization) throw new TRPCError({
+      code: 'NOT_FOUND'
+    })
+
+    const rooms = await ctx.db.room.findMany({
       where: {
         users: {
           some: {
             userId,
           },
         },
+        organizationId: orgId!
       },
       include: {
         users: true,
         _count: true,
       },
     });
+
+    return {
+      rooms,
+      organization
+    }
   }),
   createRoom: protectedProcedure
     .input(z.object({ name: z.string().min(1) }))
