@@ -6,7 +6,7 @@ import React from 'react'
 const ProfileSidebar = () => {
   return (
     <>
-      <div className="hidden lg:block">
+      <div className="hidden lg:block lg:sticky top-0 left-0">
           <InPageSidebar
             basePath='/settings'
             items={profileLinks}

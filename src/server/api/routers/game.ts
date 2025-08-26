@@ -111,6 +111,7 @@ async function getScaleValues(db: PrismaClient, orgId: string): Promise<number[]
     orderBy: { position: "asc" },
     select: { value: true },
   });
+  
   return pts.length ? pts.map((p) => p.value) : [1, 2, 3, 5, 8, 13, 20, 40, 100];
 }
 
@@ -181,7 +182,7 @@ export const gameRouter = createTRPCRouter({
     }),
 
   castVote: protectedProcedure
-    .input(voteSchema) // { roomId, gameId, value:number }
+    .input(voteSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
@@ -218,7 +219,7 @@ export const gameRouter = createTRPCRouter({
     }),
 
   endGame: protectedProcedure
-    .input(endGameSchema) // { roomId, gameId }
+    .input(endGameSchema)
     .mutation(async ({ ctx, input }): Promise<IEndGameResponse> => {
       const userId = ctx.session.user.id;
 
