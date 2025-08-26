@@ -27,7 +27,17 @@ export const roomRouter = createTRPCRouter({
   createRoom: protectedProcedure
     .input(z.object({ name: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const room = await db.room.create({ data: { name: input.name } });
+      const orgId = ctx.orgId;
+      const room = await db.room.create({
+        data: {
+          name: input.name,
+          organization: {
+            connect: {
+              id: orgId!
+            }
+          }
+        },
+      });
 
       await ctx.db.roomUser.create({
         data: {

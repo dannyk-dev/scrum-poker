@@ -22,9 +22,10 @@ import { Spinner } from '@/components/ui/spinner'
 type Props = {
   value: string[];
   onValueChange: (value: string[]) => void;
+  disabled?: boolean;
 }
 
-const ComboboxUsers = ({ value, onValueChange }: Props) => {
+const ComboboxUsers = ({ value, onValueChange, disabled = false }: Props) => {
   const id = useId()
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -68,6 +69,7 @@ const ComboboxUsers = ({ value, onValueChange }: Props) => {
             id={id}
             variant='outline'
             role='combobox'
+            disabled={disabled}
             aria-expanded={open}
             className='h-auto  min-h-8 w-full justify-between hover:bg-transparent'
           >

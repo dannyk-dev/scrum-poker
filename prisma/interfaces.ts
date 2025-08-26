@@ -42,6 +42,7 @@ export interface Organization {
   users?: UserOrganization[];
   rooms?: Room[];
   invitations?: Invitation[];
+  User?: User[];
 }
 
 export interface UserOrganization {
@@ -67,6 +68,8 @@ export interface User {
   sessions?: Session[];
   votes?: Vote[];
   organizations?: UserOrganization[];
+  activeOrganizationId: string | null;
+  activeOrganization?: Organization | null;
 }
 
 export interface VerificationToken {

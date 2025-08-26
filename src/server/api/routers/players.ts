@@ -16,10 +16,10 @@ const notificationEmitter = new EventEmitter();
 
 export const playerRouter = createTRPCRouter({
   getNotifications: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session.user.id;
+    const user = ctx.session.user;
 
     const notifs = await ctx.db.notification.findMany({
-      where: { userId },
+      where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     });
 
@@ -45,7 +45,6 @@ export const playerRouter = createTRPCRouter({
       );
     }
 
-    /* ④  Enrich and return */
     return notifs.map((n) => {
       if (n.type !== "Invitation") return n;
 
@@ -59,12 +58,16 @@ export const playerRouter = createTRPCRouter({
     });
   }),
   getPlayerEmails: protectedProcedure.query(async ({ ctx }) => {
+    const orgId = ctx.orgId
     const players = await ctx.db.user.findMany({
       include: {
         rooms: true,
         accounts: true,
         _count: true,
       },
+      where: {
+        activeOrganizationId: orgId
+      }
     });
 
     return players;

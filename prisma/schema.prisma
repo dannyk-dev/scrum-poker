@@ -56,6 +56,7 @@ model Organization {
   invitations  Invitation[]
 
   @@index([atlassianCloudId])
+  User User[] @relation("ActiveOrg")
 }
 
 model UserOrganization {
@@ -86,6 +87,9 @@ model User {
   votes         Vote[]
 
   organizations UserOrganization[]
+   activeOrganizationId String?
+  activeOrganization   Organization?    @relation("ActiveOrg", fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+
   @@index([id, email])
 }
 

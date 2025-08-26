@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * YOU PROBABLY DON'T NEED TO EDIT THIS FILE, UNLESS:
  * 1. You want to modify request context (see Part 1).
@@ -29,7 +32,6 @@ import { db } from "@/server/db";
  */
 export const createTRPCContext = async (opts?: {header: Headers}) => {
   const session = await auth();
-
 
   return {
     db,
@@ -128,6 +130,43 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
 
+
+// export const orgScope = t.middleware(async ({ ctx, next }) => {
+//   const userId = ctx.session?.user?.id;
+//   if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+//   const memberships = await ctx.db.userOrganization.findMany({
+//     where: { userId },
+//     select: { organizationId: true, role: true, organization: { select: { id: true, name: true } } },
+//     orderBy: { joinedAt: "asc" },
+//   });
+//   if (memberships.length === 0) throw new TRPCError({ code: "FORBIDDEN", message: "No organization" });
+
+//   const chosen =
+//     memberships.find((m) => m.organizationId === requested) ??
+//     memberships[0];
+
+//   const org = { id: chosen.organizationId, role: chosen.role, name: chosen.organization.name };
+
+//   return next({ ctx: { ...ctx, org } });
+// });
+
+export const ensureActiveOrg = t.middleware(async ({ ctx, next }) => {
+  const user = ctx.session!.user;
+
+  if (!user?.activeOrganizationId) {
+    const m = await ctx.db.userOrganization.findFirst({
+      where: { userId: user.id },
+      orderBy: { joinedAt: "asc" },
+      select: { organizationId: true },
+    });
+    if (!m) throw new TRPCError({ code: "FORBIDDEN", message: "No organization membership" });
+    await ctx.db.user.update({ where: { id: user.id }, data: { activeOrganizationId: m.organizationId } });
+  }
+
+  return next({ ctx: { ...ctx.session, orgId: user.activeOrganizationId } });
+});
+
 /**
  * Protected (authenticated) procedure
  *
@@ -139,7 +178,7 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
-    if (!ctx.session?.user) {
+    if (!ctx.session || !ctx.session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
     return next({
@@ -148,4 +187,4 @@ export const protectedProcedure = t.procedure
         session: { ...ctx.session, user: ctx.session.user },
       },
     });
-  });
+  }).use(ensureActiveOrg);

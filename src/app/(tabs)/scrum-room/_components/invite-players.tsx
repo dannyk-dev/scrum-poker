@@ -115,7 +115,7 @@ const InvitePlayers = ({
 
               <Button className="w-full" type="submit" isLoading={isPending}>
                 <IconSend />
-                Invite All
+                Invite
               </Button>
             </form>
           </Form>
