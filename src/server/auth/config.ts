@@ -108,7 +108,15 @@ export const authConfig = {
                 role: "MEMBER" as OrgRole,
               },
             });
+
+            await tx.gameSettings.create({
+              data: {
+                organizationId: org.id,
+              }
+            })
           }
+
+
 
           if (!orgIds.length) return;
 

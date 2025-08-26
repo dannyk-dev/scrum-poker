@@ -1,40 +1,38 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 // src/server/api/routers/game-settings.ts
 import { z } from "zod";
 import { Prisma, PrismaClient, ScrumPointUnit } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 
-async function ensureSettings(db: PrismaClient, orgId: string) {
-  const org = await db.organization.findUnique({
-    where: { id: orgId },
-    select: { id: true, gameSettingsId: true },
+/** Ensure org settings exist and return id (1 query via upsert on unique organizationId). */
+async function ensureSettings(db: PrismaClient, orgId: string): Promise<string> {
+  const gs = await db.gameSettings.upsert({
+    where: { organizationId: orgId },
+    update: {},
+    create: { organizationId: orgId },
+    select: { id: true },
   });
 
-  if (org?.gameSettingsId) return org.gameSettingsId as string;
-
-  return await db.$transaction(async (tx: any) => {
-    const gs = await tx.gameSettings.create({ data: {} });
-    await tx.organization.update({
-      where: { id: orgId },
-      data: { gameSettingsId: gs.id },
-    });
-    return gs.id as string;
-  });
+  return gs.id;
 }
+
 
 const pointInput = z.object({
   id: z.string().cuid().optional(),
   value: z.number().int(),
-  timeStart: z.number().int().default(0),
-  timeEnd: z.number().int().default(0),
+  timeStart: z.number().int().nonnegative().default(0),
+  timeEnd: z.number().int().nonnegative().default(0),
   valueUnit: z.nativeEnum(ScrumPointUnit),
   position: z.number().int().nonnegative().default(0),
 });
 
 const presetItemInput = pointInput.omit({ id: true });
 
+/* ─────────────────────────── Router ─────────────────────────── */
+
 export const gameSettingsRouter = createTRPCRouter({
   get: protectedProcedure.query(async ({ ctx }) => {
-    const settingsId = await ensureSettings(ctx.db, ctx.orgId);
+    const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
 
     const [settings, points, presets] = await Promise.all([
       ctx.db.gameSettings.findUnique({
@@ -55,18 +53,26 @@ export const gameSettingsRouter = createTRPCRouter({
       ctx.db.scrumPoint.findMany({
         where: { gameSettingsId: settingsId },
         orderBy: { position: "asc" },
-        select: { id: true, value: true, timeStart: true, timeEnd: true, valueUnit: true, position: true },
+        select: {
+          id: true,
+          value: true,
+          timeStart: true,
+          timeEnd: true,
+          valueUnit: true,
+          position: true,
+        },
       }),
       ctx.db.scrumPointPreset.findMany({
-        where: { organizationId: ctx.org.id },
+        where: { organizationId: ctx.orgId! },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
         select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
       }),
     ]);
+
     return { settings, points, presets };
   }),
 
-  /** Update toggles and timers */
+  /** Update toggles and timers. */
   update: protectedProcedure
     .input(
       z.object({
@@ -81,12 +87,13 @@ export const gameSettingsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const settingsId = await ensureSettings(ctx.db, ctx.orgId!);
+      const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
       const data = { ...input };
+
       if (input.autoShowResultsTime !== undefined) {
+        // @ts-expect-error
         data.autoShowResultsTime = new Prisma.Decimal(input.autoShowResultsTime);
       }
-
       return ctx.db.gameSettings.update({
         where: { id: settingsId },
         data,
@@ -104,33 +111,33 @@ export const gameSettingsRouter = createTRPCRouter({
       });
     }),
 
-  /** SCALE: list */
-  listPoints: protectedOrgProcedure.query(async ({ ctx }) => {
-    const settingsId = await ensureSettings(ctx.db, ctx.org.id);
+  /* ───────────── Scale (ScrumPoints) ───────────── */
+
+  listPoints: protectedProcedure.query(async ({ ctx }) => {
+    const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
     return ctx.db.scrumPoint.findMany({
       where: { gameSettingsId: settingsId },
       orderBy: { position: "asc" },
     });
   }),
 
-  /** SCALE: replace all (atomic) */
-  replaceScale: adminOrgProcedure
+  /** Replace entire scale atomically. */
+  replaceScale: protectedProcedure
     .input(z.object({ points: z.array(pointInput.omit({ id: true })) }))
     .mutation(async ({ ctx, input }) => {
-      const settingsId = await ensureSettings(ctx.db, ctx.org.id);
+      const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
       return ctx.db.$transaction(async (tx) => {
         await tx.scrumPoint.deleteMany({ where: { gameSettingsId: settingsId } });
         if (input.points.length) {
           await tx.scrumPoint.createMany({
-            data: input.points.map((p, idx) => ({
+            data: input.points.map((p, i) => ({
               gameSettingsId: settingsId,
               value: p.value,
               timeStart: p.timeStart ?? 0,
               timeEnd: p.timeEnd ?? 0,
               valueUnit: p.valueUnit,
-              position: p.position ?? idx,
+              position: p.position ?? i,
             })),
-            skipDuplicates: true,
           });
         }
         return tx.scrumPoint.findMany({
@@ -140,115 +147,116 @@ export const gameSettingsRouter = createTRPCRouter({
       });
     }),
 
-  /** SCALE: add one */
-  addPoint: adminOrgProcedure.input(pointInput.omit({ id: true })).mutation(async ({ ctx, input }) => {
-    const settingsId = await ensureSettings(ctx.db, ctx.org.id);
-    const last = await ctx.db.scrumPoint.findFirst({
-      where: { gameSettingsId: settingsId },
-      orderBy: { position: "desc" },
-      select: { position: true },
-    });
-    return ctx.db.scrumPoint.create({
-      data: {
-        gameSettingsId: settingsId,
-        ...input,
-        position: input.position ?? (last?.position ?? 0) + 1,
-      },
-    });
-  }),
+  addPoint: protectedProcedure
+    .input(pointInput.omit({ id: true }))
+    .mutation(async ({ ctx, input }) => {
+      const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
+      const last = await ctx.db.scrumPoint.findFirst({
+        where: { gameSettingsId: settingsId },
+        orderBy: { position: "desc" },
+        select: { position: true },
+      });
+      return ctx.db.scrumPoint.create({
+        data: {
+          gameSettingsId: settingsId,
+          value: input.value,
+          timeStart: input.timeStart ?? 0,
+          timeEnd: input.timeEnd ?? 0,
+          valueUnit: input.valueUnit,
+          position: input.position ?? (last?.position ?? -1) + 1,
+        },
+      });
+    }),
 
-  /** SCALE: update one */
-  updatePoint: adminOrgProcedure
+  updatePoint: protectedProcedure
     .input(
       z.object({
         id: z.string().cuid(),
         value: z.number().int().optional(),
-        timeStart: z.number().int().optional(),
-        timeEnd: z.number().int().optional(),
+        timeStart: z.number().int().nonnegative().optional(),
+        timeEnd: z.number().int().nonnegative().optional(),
         valueUnit: z.nativeEnum(ScrumPointUnit).optional(),
         position: z.number().int().nonnegative().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.scrumPoint.update({
-        where: { id: input.id },
-        data: { ...input, id: undefined },
-      });
+      const { id, ...data } = input;
+      return ctx.db.scrumPoint.update({ where: { id }, data });
     }),
 
-  /** SCALE: remove one */
-  removePoint: adminOrgProcedure.input(z.object({ id: z.string().cuid() })).mutation(async ({ ctx, input }) => {
-    return ctx.db.scrumPoint.delete({ where: { id: input.id } });
-  }),
+  removePoint: protectedProcedure
+    .input(z.object({ id: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.scrumPoint.delete({ where: { id: input.id } });
+      return { ok: true as const };
+    }),
 
-  /** SCALE: reorder by ids in new order */
-  reorderPoints: adminOrgProcedure
+  reorderPoints: protectedProcedure
     .input(z.object({ orderedIds: z.array(z.string().cuid()).min(1) }))
     .mutation(async ({ ctx, input }) => {
-      const updates = input.orderedIds.map((id, idx) =>
-        ctx.db.scrumPoint.update({ where: { id }, data: { position: idx } }),
+      await ctx.db.$transaction(
+        input.orderedIds.map((id, idx) =>
+          ctx.db.scrumPoint.update({ where: { id }, data: { position: idx } }),
+        ),
       );
-      await Promise.all(updates);
-      return { ok: true };
+      return { ok: true as const };
     }),
 
-  /** PRESETS: list */
-  listPresets: protectedOrgProcedure.query(async ({ ctx }) => {
+  /* ───────────── Presets ───────────── */
+
+  listPresets: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.scrumPointPreset.findMany({
-      where: { organizationId: ctx.org.id },
+      where: { organizationId: ctx.orgId! },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
       select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
     });
   }),
 
-  /** PRESETS: get with items */
-  getPreset: protectedOrgProcedure
+  getPreset: protectedProcedure
     .input(z.object({ presetId: z.string().cuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.db.scrumPointPreset.findFirst({
-        where: { id: input.presetId, organizationId: ctx.org.id },
+        where: { id: input.presetId, organizationId: ctx.orgId! },
         include: { items: { orderBy: { position: "asc" } } },
       });
     }),
 
-  /** PRESETS: create (with items) */
-  createPreset: adminOrgProcedure
+  createPreset: protectedProcedure
     .input(
       z.object({
         name: z.string().min(1).max(120),
         description: z.string().max(500).optional(),
-        items: z.array(presetItemInput).min(1),
         isDefault: z.boolean().optional(),
+        items: z.array(presetItemInput).min(1),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.db.$transaction(async (tx) => {
         const preset = await tx.scrumPointPreset.create({
           data: {
-            organizationId: ctx.org.id,
+            organizationId: ctx.orgId!,
             name: input.name,
             description: input.description,
             isDefault: input.isDefault ?? false,
             createdByUserId: ctx.session.user.id,
           },
+          select: { id: true, name: true },
         });
         await tx.scrumPointPresetItem.createMany({
-          data: input.items.map((it, idx) => ({
+          data: input.items.map((it, i) => ({
             presetId: preset.id,
             value: it.value,
             timeStart: it.timeStart ?? 0,
             timeEnd: it.timeEnd ?? 0,
             valueUnit: it.valueUnit,
-            position: it.position ?? idx,
+            position: it.position ?? i,
           })),
-          skipDuplicates: true,
         });
         return preset;
       });
     }),
 
-  /** PRESETS: update meta */
-  updatePresetMeta: adminOrgProcedure
+  updatePresetMeta: protectedProcedure
     .input(
       z.object({
         presetId: z.string().cuid(),
@@ -258,79 +266,83 @@ export const gameSettingsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const { presetId, ...data } = input;
       return ctx.db.scrumPointPreset.update({
-        where: { id: input.presetId },
-        data: { name: input.name, description: input.description, isDefault: input.isDefault },
+        where: { id: presetId },
+        data,
         select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
       });
     }),
 
-  /** PRESETS: replace items */
-  replacePresetItems: adminOrgProcedure
+  replacePresetItems: protectedProcedure
     .input(z.object({ presetId: z.string().cuid(), items: z.array(presetItemInput).min(1) }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.$transaction(async (tx) => {
+      await ctx.db.$transaction(async (tx) => {
         await tx.scrumPointPresetItem.deleteMany({ where: { presetId: input.presetId } });
         await tx.scrumPointPresetItem.createMany({
-          data: input.items.map((it, idx) => ({
+          data: input.items.map((it, i) => ({
             presetId: input.presetId,
             value: it.value,
             timeStart: it.timeStart ?? 0,
             timeEnd: it.timeEnd ?? 0,
             valueUnit: it.valueUnit,
-            position: it.position ?? idx,
+            position: it.position ?? i,
           })),
-          skipDuplicates: true,
         });
-        return { ok: true };
       });
+      return { ok: true as const };
     }),
 
-  /** PRESETS: delete */
-  deletePreset: adminOrgProcedure.input(z.object({ presetId: z.string().cuid() })).mutation(async ({ ctx, input }) => {
-    await ctx.db.scrumPointPreset.delete({ where: { id: input.presetId } });
-    return { ok: true };
-  }),
+  deletePreset: protectedProcedure
+    .input(z.object({ presetId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.scrumPointPreset.delete({ where: { id: input.presetId } });
+      return { ok: true as const };
+    }),
 
-  /** Activate preset (link only) */
-  setActivePreset: adminOrgProcedure
+  /** Link preset as active (no copy). */
+  setActivePreset: protectedProcedure
     .input(z.object({ presetId: z.string().cuid().nullable() }))
     .mutation(async ({ ctx, input }) => {
-      const settingsId = await ensureSettings(ctx.db, ctx.org.id);
+      const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
       await ctx.db.gameSettings.update({
         where: { id: settingsId },
         data: { activePresetId: input.presetId },
       });
-      return { ok: true };
+      return { ok: true as const };
     }),
 
-  /** Apply preset items to the current scale (copy items -> scrumPoints) */
-  applyPresetToScale: adminOrgProcedure
+  /** Copy preset items into current scale and set as active. */
+  applyPresetToScale: protectedProcedure
     .input(z.object({ presetId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      const settingsId = await ensureSettings(ctx.db, ctx.org.id);
+      const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
       const items = await ctx.db.scrumPointPresetItem.findMany({
         where: { presetId: input.presetId },
         orderBy: { position: "asc" },
+        select: { value: true, timeStart: true, timeEnd: true, valueUnit: true, position: true },
       });
-      return ctx.db.$transaction(async (tx) => {
+
+      await ctx.db.$transaction(async (tx) => {
         await tx.scrumPoint.deleteMany({ where: { gameSettingsId: settingsId } });
-        await tx.scrumPoint.createMany({
-          data: items.map((it) => ({
-            gameSettingsId: settingsId,
-            value: it.value,
-            timeStart: it.timeStart,
-            timeEnd: it.timeEnd,
-            valueUnit: it.valueUnit,
-            position: it.position,
-          })),
-          skipDuplicates: true,
-        });
+        if (items.length) {
+          await tx.scrumPoint.createMany({
+            data: items.map((it) => ({
+              gameSettingsId: settingsId,
+              value: it.value,
+              timeStart: it.timeStart,
+              timeEnd: it.timeEnd,
+              valueUnit: it.valueUnit,
+              position: it.position,
+            })),
+          });
+        }
         await tx.gameSettings.update({
           where: { id: settingsId },
           data: { activePresetId: input.presetId },
         });
-        return { ok: true };
       });
+
+      return { ok: true as const };
     }),
 });

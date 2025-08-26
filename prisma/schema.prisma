@@ -57,7 +57,7 @@ model Organization {
   User User[] @relation("ActiveOrg")
 
 
-  GameSettings GameSettings?
+  gameSettings GameSettings?
   pointPresets ScrumPointPreset[]
 
   @@index([atlassianCloudId])

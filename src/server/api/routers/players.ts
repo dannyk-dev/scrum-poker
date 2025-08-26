@@ -10,7 +10,7 @@ import z from "zod";
 import crypto from "crypto";
 import EventEmitter from "events";
 import { sleep } from "@/lib/utils";
-import type { Invitation, Notification } from "prisma/interfaces";
+import type { Notification } from "prisma/interfaces";
 
 const notificationEmitter = new EventEmitter();
 

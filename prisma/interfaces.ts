@@ -44,7 +44,7 @@ export interface Organization {
   users?: UserOrganization[];
   rooms?: Room[];
   User?: User[];
-  GameSettings?: GameSettings | null;
+  gameSettings?: GameSettings | null;
   pointPresets?: ScrumPointPreset[];
 }
 
