@@ -5,12 +5,28 @@ import { ScrumPointUnit } from "@prisma/client";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import AddPointDialog from "./add-point-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import AddPoinTableCellialog from "./add-point-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function ScaleCard() {
   const utils = api.useUtils();
-  const { data } = api.gameSettings.get.useQuery(undefined, { refetchOnWindowFocus: false });
+  const { data } = api.gameSettings.get.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
   const points = data?.points ?? [];
 
   const updatePoint = api.gameSettings.updatePoint.useMutation({
@@ -30,20 +46,27 @@ export default function ScaleCard() {
     const next = index + dir;
     if (next < 0 || next >= points.length) return;
     const orderedIds = points.map((p) => p.id);
-    [orderedIds[index], orderedIds[next]] = [orderedIds[next], orderedIds[index]];
+    [orderedIds[index], orderedIds[next]] = [
+      orderedIds[next],
+      orderedIds[index],
+    ];
     reorderPoints.mutate({ orderedIds });
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        <AddPointDialog />
+      <div className="flex flex-wrap items-center gap-2">
+        <AddPoinTableCellialog />
         <Button
           variant="outline"
           size="sm"
           onClick={() => {
-            const items = [1,2,3,5,8,13,21,34,55].map((v) => ({
-              value: v, timeStart: 0, timeEnd: 0, valueUnit: ScrumPointUnit.HOUR,
+            const items = [1, 2, 3, 5, 8, 13, 21, 34, 55].map((v) => ({
+              value: v,
+              timeStart: 0,
+              timeEnd: 0,
+              valueStartUnit: ScrumPointUnit.HOUR,
+              valueEndUnit: ScrumPointUnit.HOUR,
             }));
             replaceScale.mutate({ points: items });
           }}
@@ -53,72 +76,125 @@ export default function ScaleCard() {
       </div>
 
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted sticky top-0 z-10">
-            <tr>
-              <th className="text-left px-3 py-2">Value</th>
-              <th className="text-left px-3 py-2">Unit</th>
-              <th className="text-left px-3 py-2">Start</th>
-              <th className="text-left px-3 py-2">End</th>
-              <th className="text-left px-3 py-2">Position</th>
-              <th className="text-right px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader className="bg-muted sticky top-0 z-10">
+            <TableRow>
+              <TableHead>Value</TableHead>
+              <TableHead>Unit</TableHead>
+              <TableHead>Start</TableHead>
+              <TableHead>End</TableHead>
+              <TableHead>Position</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {points.map((p, idx) => (
-              <tr key={p.id} className="border-t">
-                <td className="px-3 py-2">
+              <TableRow key={p.id}>
+                <TableCell>
                   <Input
                     className="w-24"
                     type="number"
                     value={p.value}
-                    onChange={(e) => updatePoint.mutate({ id: p.id, value: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updatePoint.mutate({
+                        id: p.id,
+                        value: Number(e.target.value),
+                      })
+                    }
                   />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell>
                   <Select
-                    value={p.valueUnit}
-                    onValueChange={(v) => updatePoint.mutate({ id: p.id, valueUnit: v as ScrumPointUnit })}
+                    value={p.valueStartUnit}
+                    onValueChange={(v) =>
+                      updatePoint.mutate({
+                        id: p.id,
+                        valueUnit: v as ScrumPointUnit,
+                      })
+                    }
                   >
-                    <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {Object.values(ScrumPointUnit).map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                      {Object.values(ScrumPointUnit).map((u) => (
+                        <SelectItem key={u} value={u}>
+                          {u}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell>
                   <Input
                     className="w-24"
                     type="number"
                     min={0}
                     value={p.timeStart}
-                    onChange={(e) => updatePoint.mutate({ id: p.id, timeStart: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updatePoint.mutate({
+                        id: p.id,
+                        timeStart: Number(e.target.value),
+                      })
+                    }
                   />
-                </td>
-                <td className="px-3 py-2">
+                </TableCell>
+                <TableCell>
                   <Input
                     className="w-24"
                     type="number"
                     min={0}
                     value={p.timeEnd}
-                    onChange={(e) => updatePoint.mutate({ id: p.id, timeEnd: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updatePoint.mutate({
+                        id: p.id,
+                        timeEnd: Number(e.target.value),
+                      })
+                    }
                   />
-                </td>
-                <td className="px-3 py-2">{p.position}</td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="outline" size="sm" onClick={() => moveRow(idx, -1)} disabled={idx === 0}>↑</Button>
-                    <Button variant="outline" size="sm" onClick={() => moveRow(idx, +1)} disabled={idx === points.length - 1}>↓</Button>
-                    <Button variant="destructive" size="sm" onClick={() => removePoint.mutate({ id: p.id })}>Remove</Button>
+                </TableCell>
+                <TableCell>{p.position}</TableCell>
+                <TableCell className="px-3 py-2">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => moveRow(idx, -1)}
+                      disabled={idx === 0}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => moveRow(idx, +1)}
+                      disabled={idx === points.length - 1}
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removePoint.mutate({ id: p.id })}
+                    >
+                      Remove
+                    </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
             {points.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">No points yet.</td></tr>
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-muted-foreground px-3 py-8 text-center"
+                >
+                  No points yet.
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

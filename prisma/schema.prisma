@@ -88,7 +88,8 @@ model ScrumPoint {
   value     Int
   timeStart Int
   timeEnd   Int
-  valueUnit ScrumPointUnit
+  valueStartUnit ScrumPointUnit @default(DAY)
+  valueEndUnit  ScrumPointUnit  @default(DAY)
   position  Int            @default(0)
 
   gameSettingsId String
@@ -134,7 +135,8 @@ model ScrumPointPresetItem {
   value     Int
   timeStart Int
   timeEnd   Int
-  valueUnit ScrumPointUnit
+  valueStartUnit ScrumPointUnit @default(DAY)
+  valueEndUnit  ScrumPointUnit  @default(DAY)
   position  Int            @default(0)
 
   preset ScrumPointPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
