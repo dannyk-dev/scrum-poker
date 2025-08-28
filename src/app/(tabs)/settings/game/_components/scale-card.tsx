@@ -70,6 +70,7 @@ export default function ScaleCard() {
             }));
             replaceScale.mutate({ points: items });
           }}
+          isLoading={replaceScale.isPending}
         >
           Load Fibonacci
         </Button>
@@ -80,9 +81,10 @@ export default function ScaleCard() {
           <TableHeader className="bg-muted sticky top-0 z-10">
             <TableRow>
               <TableHead>Value</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead>Start</TableHead>
-              <TableHead>End</TableHead>
+              <TableHead>Unit (start)</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Unit (end)</TableHead>
+              <TableHead>Time</TableHead>
               <TableHead>Position</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -109,11 +111,11 @@ export default function ScaleCard() {
                     onValueChange={(v) =>
                       updatePoint.mutate({
                         id: p.id,
-                        valueUnit: v as ScrumPointUnit,
+                        valueStartUnit: v as ScrumPointUnit,
                       })
                     }
                   >
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -138,6 +140,28 @@ export default function ScaleCard() {
                       })
                     }
                   />
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={p.valueEndUnit}
+                    onValueChange={(v) =>
+                      updatePoint.mutate({
+                        id: p.id,
+                        valueEndUnit: v as ScrumPointUnit,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(ScrumPointUnit).map((u) => (
+                        <SelectItem key={u} value={u}>
+                          {u}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   <Input
@@ -176,6 +200,7 @@ export default function ScaleCard() {
                       variant="destructive"
                       size="sm"
                       onClick={() => removePoint.mutate({ id: p.id })}
+                      isLoading={removePoint.isPending}
                     >
                       Remove
                     </Button>

@@ -8,19 +8,36 @@ import { ScrumPointUnit } from "@prisma/client";
 import { api } from "@/trpc/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 
 const schema = z.object({
   value: z.number().int(),
-  timeStart: z.number().int().nonnegative().default(0),
-  timeEnd: z.number().int().nonnegative().default(0),
-  valueUnit: z.nativeEnum(ScrumPointUnit),
+  timeStart: z.number().int().nonnegative(),
+  timeEnd: z.number().int().nonnegative(),
+  valueStartUnit: z.nativeEnum(ScrumPointUnit),
+  valueEndUnit: z.nativeEnum(ScrumPointUnit),
 });
 type FormType = z.infer<typeof schema>;
 
@@ -33,18 +50,33 @@ export default function AddPointDialog() {
 
   const form = useForm<FormType>({
     resolver: zodResolver(schema),
-    defaultValues: { value: 1, timeStart: 0, timeEnd: 0, valueUnit: ScrumPointUnit.HOUR },
+    defaultValues: {
+      value: 1,
+      timeStart: 0,
+      timeEnd: 0,
+      valueStartUnit: ScrumPointUnit.DAY,
+      valueEndUnit: ScrumPointUnit.DAY,
+    },
   });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm">Add point</Button></DialogTrigger>
+      <DialogTrigger asChild>
+        <Button size="sm">Add point</Button>
+      </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>Add point</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Add point</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((v) =>
-              addPoint.mutate(v, { onSuccess: () => { setOpen(false); form.reset(); } }),
+              addPoint.mutate(v, {
+                onSuccess: () => {
+                  setOpen(false);
+                  form.reset();
+                },
+              }),
             )}
             className="space-y-4"
           >
@@ -56,7 +88,11 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Value</FormLabel>
                     <FormControl>
-                      <Input type="number" value={field.value} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -64,15 +100,24 @@ export default function AddPointDialog() {
               />
               <FormField
                 control={form.control}
-                name="valueUnit"
+                name="valueStartUnit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Unit</FormLabel>
+                    <FormLabel>Start Unit</FormLabel>
                     <FormControl>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {Object.values(ScrumPointUnit).map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                          {Object.values(ScrumPointUnit).map((u) => (
+                            <SelectItem key={u} value={u}>
+                              {u}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </FormControl>
@@ -87,7 +132,39 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Time start</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} value={field.value} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="valueEndUnit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Unit</FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(ScrumPointUnit).map((u) => (
+                            <SelectItem key={u} value={u}>
+                              {u}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -100,7 +177,12 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Time end</FormLabel>
                     <FormControl>
-                      <Input type="number" min={0} value={field.value} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -108,8 +190,16 @@ export default function AddPointDialog() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={addPoint.isPending}>Add</Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={addPoint.isPending}>
+                Add
+              </Button>
             </DialogFooter>
           </form>
         </Form>

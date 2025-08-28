@@ -22,16 +22,14 @@ async function ensureSettings(
 const pointInput = z.object({
   id: z.string().cuid().optional(),
   value: z.number().int(),
-  timeStart: z.number().int().nonnegative().default(0),
-  timeEnd: z.number().int().nonnegative().default(0),
+  timeStart: z.number().int().nonnegative(),
+  timeEnd: z.number().int().nonnegative(),
   valueStartUnit: z.nativeEnum(ScrumPointUnit),
   valueEndUnit: z.nativeEnum(ScrumPointUnit),
   position: z.number().int().nonnegative().default(0),
 });
 
 const presetItemInput = pointInput.omit({ id: true });
-
-/* ─────────────────────────── Router ─────────────────────────── */
 
 export const gameSettingsRouter = createTRPCRouter({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -143,6 +141,7 @@ export const gameSettingsRouter = createTRPCRouter({
         await tx.scrumPoint.deleteMany({
           where: { gameSettingsId: settingsId },
         });
+
         if (input.points.length) {
           await tx.scrumPoint.createMany({
             data: input.points.map((p, i) => ({
@@ -150,7 +149,6 @@ export const gameSettingsRouter = createTRPCRouter({
               value: p.value,
               timeStart: p.timeStart ?? 0,
               timeEnd: p.timeEnd ?? 0,
-              // valueUnit: p.valueUnit,
               valueStartUnit: p.valueStartUnit,
               valueEndUnit: p.valueEndUnit,
               position: p.position ?? i,
@@ -193,7 +191,8 @@ export const gameSettingsRouter = createTRPCRouter({
         value: z.number().int().optional(),
         timeStart: z.number().int().nonnegative().optional(),
         timeEnd: z.number().int().nonnegative().optional(),
-        valueUnit: z.nativeEnum(ScrumPointUnit).optional(),
+        valueStartUnit: z.nativeEnum(ScrumPointUnit).optional(),
+        valueEndUnit: z.nativeEnum(ScrumPointUnit).optional(),
         position: z.number().int().nonnegative().optional(),
       }),
     )

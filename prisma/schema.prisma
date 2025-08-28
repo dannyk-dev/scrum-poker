@@ -263,7 +263,7 @@ model Vote {
   userId String
 
   scrumPointId String?
-  scrumPoint   ScrumPoint? @relation(fields: [scrumPointId], references: [id], onDelete: Restrict)
+  scrumPoint   ScrumPoint? @relation(fields: [scrumPointId], references: [id], onDelete: Cascade)
 
   // Denormalized numeric value for analytics stability
 //   pointValue Int
