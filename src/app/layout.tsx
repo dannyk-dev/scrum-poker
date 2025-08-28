@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { HydrateClient } from "@/trpc/server";
+import PageTransition from "@/components/page-transition";
 
 export const metadata: Metadata = {
   title: "Scrum Poker",
@@ -43,7 +44,8 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider session={session}>
+          <PageTransition>
+            <SessionProvider session={session}>
             <TRPCReactProvider>
               <HydrateClient>
                 {children}
@@ -53,6 +55,7 @@ export default async function RootLayout({
               <Toaster closeButton position="bottom-right" expand />
             </TRPCReactProvider>
           </SessionProvider>
+          </PageTransition>
         </ThemeProvider>
       </body>
     </html>
