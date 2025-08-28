@@ -1,5 +1,6 @@
 {
   "name": "scrum-poker",
+  "description": "By Danny Kruger",
   "version": "0.1.0",
   "private": true,
   "type": "module",
