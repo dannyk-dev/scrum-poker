@@ -88,7 +88,8 @@ model ScrumPoint {
   value     Int
   timeStart Int
   timeEnd   Int
-  valueUnit ScrumPointUnit
+  valueStartUnit ScrumPointUnit @default(DAY)
+  valueEndUnit  ScrumPointUnit  @default(DAY)
   position  Int            @default(0)
 
   gameSettingsId String
@@ -134,7 +135,8 @@ model ScrumPointPresetItem {
   value     Int
   timeStart Int
   timeEnd   Int
-  valueUnit ScrumPointUnit
+  valueStartUnit ScrumPointUnit @default(DAY)
+  valueEndUnit  ScrumPointUnit  @default(DAY)
   position  Int            @default(0)
 
   preset ScrumPointPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
@@ -261,7 +263,7 @@ model Vote {
   userId String
 
   scrumPointId String?
-  scrumPoint   ScrumPoint? @relation(fields: [scrumPointId], references: [id], onDelete: Restrict)
+  scrumPoint   ScrumPoint? @relation(fields: [scrumPointId], references: [id], onDelete: Cascade)
 
   // Denormalized numeric value for analytics stability
 //   pointValue Int

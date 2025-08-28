@@ -1,11 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 // src/server/api/routers/game-settings.ts
 import { z } from "zod";
-import { Prisma, PrismaClient, ScrumPointUnit } from "@prisma/client";
+import { Prisma, type PrismaClient, ScrumPointUnit } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 
 /** Ensure org settings exist and return id (1 query via upsert on unique organizationId). */
-async function ensureSettings(db: PrismaClient, orgId: string): Promise<string> {
+async function ensureSettings(
+  db: PrismaClient,
+  orgId: string,
+): Promise<string> {
   const gs = await db.gameSettings.upsert({
     where: { organizationId: orgId },
     update: {},
@@ -16,19 +19,17 @@ async function ensureSettings(db: PrismaClient, orgId: string): Promise<string> 
   return gs.id;
 }
 
-
 const pointInput = z.object({
   id: z.string().cuid().optional(),
   value: z.number().int(),
-  timeStart: z.number().int().nonnegative().default(0),
-  timeEnd: z.number().int().nonnegative().default(0),
-  valueUnit: z.nativeEnum(ScrumPointUnit),
+  timeStart: z.number().int().nonnegative(),
+  timeEnd: z.number().int().nonnegative(),
+  valueStartUnit: z.nativeEnum(ScrumPointUnit),
+  valueEndUnit: z.nativeEnum(ScrumPointUnit),
   position: z.number().int().nonnegative().default(0),
 });
 
 const presetItemInput = pointInput.omit({ id: true });
-
-/* ─────────────────────────── Router ─────────────────────────── */
 
 export const gameSettingsRouter = createTRPCRouter({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -58,14 +59,22 @@ export const gameSettingsRouter = createTRPCRouter({
           value: true,
           timeStart: true,
           timeEnd: true,
-          valueUnit: true,
+
+          valueStartUnit: true,
+          valueEndUnit: true,
           position: true,
         },
       }),
       ctx.db.scrumPointPreset.findMany({
         where: { organizationId: ctx.orgId! },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-        select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          isDefault: true,
+          updatedAt: true,
+        },
       }),
     ]);
 
@@ -92,7 +101,9 @@ export const gameSettingsRouter = createTRPCRouter({
 
       if (input.autoShowResultsTime !== undefined) {
         // @ts-expect-error
-        data.autoShowResultsTime = new Prisma.Decimal(input.autoShowResultsTime);
+        data.autoShowResultsTime = new Prisma.Decimal(
+          input.autoShowResultsTime,
+        );
       }
       return ctx.db.gameSettings.update({
         where: { id: settingsId },
@@ -127,7 +138,10 @@ export const gameSettingsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
       return ctx.db.$transaction(async (tx) => {
-        await tx.scrumPoint.deleteMany({ where: { gameSettingsId: settingsId } });
+        await tx.scrumPoint.deleteMany({
+          where: { gameSettingsId: settingsId },
+        });
+
         if (input.points.length) {
           await tx.scrumPoint.createMany({
             data: input.points.map((p, i) => ({
@@ -135,7 +149,8 @@ export const gameSettingsRouter = createTRPCRouter({
               value: p.value,
               timeStart: p.timeStart ?? 0,
               timeEnd: p.timeEnd ?? 0,
-              valueUnit: p.valueUnit,
+              valueStartUnit: p.valueStartUnit,
+              valueEndUnit: p.valueEndUnit,
               position: p.position ?? i,
             })),
           });
@@ -162,7 +177,8 @@ export const gameSettingsRouter = createTRPCRouter({
           value: input.value,
           timeStart: input.timeStart ?? 0,
           timeEnd: input.timeEnd ?? 0,
-          valueUnit: input.valueUnit,
+          valueStartUnit: input.valueStartUnit,
+          valueEndUnit: input.valueEndUnit,
           position: input.position ?? (last?.position ?? -1) + 1,
         },
       });
@@ -175,7 +191,8 @@ export const gameSettingsRouter = createTRPCRouter({
         value: z.number().int().optional(),
         timeStart: z.number().int().nonnegative().optional(),
         timeEnd: z.number().int().nonnegative().optional(),
-        valueUnit: z.nativeEnum(ScrumPointUnit).optional(),
+        valueStartUnit: z.nativeEnum(ScrumPointUnit).optional(),
+        valueEndUnit: z.nativeEnum(ScrumPointUnit).optional(),
         position: z.number().int().nonnegative().optional(),
       }),
     )
@@ -201,14 +218,17 @@ export const gameSettingsRouter = createTRPCRouter({
       );
       return { ok: true as const };
     }),
-
-  /* ───────────── Presets ───────────── */
-
   listPresets: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.scrumPointPreset.findMany({
       where: { organizationId: ctx.orgId! },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isDefault: true,
+        updatedAt: true,
+      },
     });
   }),
 
@@ -248,14 +268,21 @@ export const gameSettingsRouter = createTRPCRouter({
             value: it.value,
             timeStart: it.timeStart ?? 0,
             timeEnd: it.timeEnd ?? 0,
-            valueUnit: it.valueUnit,
+            valueStartUnit: it.valueStartUnit,
+            valueEndUnit: it.valueEndUnit,
             position: it.position ?? i,
           })),
         });
         return preset;
       });
     }),
-
+  clearScale: protectedProcedure.mutation(async ({ ctx }) => {
+    const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
+    await ctx.db.scrumPoint.deleteMany({
+      where: { gameSettingsId: settingsId },
+    });
+    return { ok: true as const };
+  }),
   updatePresetMeta: protectedProcedure
     .input(
       z.object({
@@ -270,22 +297,36 @@ export const gameSettingsRouter = createTRPCRouter({
       return ctx.db.scrumPointPreset.update({
         where: { id: presetId },
         data,
-        select: { id: true, name: true, description: true, isDefault: true, updatedAt: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          isDefault: true,
+          updatedAt: true,
+        },
       });
     }),
 
   replacePresetItems: protectedProcedure
-    .input(z.object({ presetId: z.string().cuid(), items: z.array(presetItemInput).min(1) }))
+    .input(
+      z.object({
+        presetId: z.string().cuid(),
+        items: z.array(presetItemInput).min(1),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       await ctx.db.$transaction(async (tx) => {
-        await tx.scrumPointPresetItem.deleteMany({ where: { presetId: input.presetId } });
+        await tx.scrumPointPresetItem.deleteMany({
+          where: { presetId: input.presetId },
+        });
         await tx.scrumPointPresetItem.createMany({
           data: input.items.map((it, i) => ({
             presetId: input.presetId,
             value: it.value,
             timeStart: it.timeStart ?? 0,
             timeEnd: it.timeEnd ?? 0,
-            valueUnit: it.valueUnit,
+            valueStartUnit: it.valueStartUnit,
+            valueEndUnit: it.valueEndUnit,
             position: it.position ?? i,
           })),
         });
@@ -300,7 +341,6 @@ export const gameSettingsRouter = createTRPCRouter({
       return { ok: true as const };
     }),
 
-  /** Link preset as active (no copy). */
   setActivePreset: protectedProcedure
     .input(z.object({ presetId: z.string().cuid().nullable() }))
     .mutation(async ({ ctx, input }) => {
@@ -312,7 +352,6 @@ export const gameSettingsRouter = createTRPCRouter({
       return { ok: true as const };
     }),
 
-  /** Copy preset items into current scale and set as active. */
   applyPresetToScale: protectedProcedure
     .input(z.object({ presetId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -320,11 +359,20 @@ export const gameSettingsRouter = createTRPCRouter({
       const items = await ctx.db.scrumPointPresetItem.findMany({
         where: { presetId: input.presetId },
         orderBy: { position: "asc" },
-        select: { value: true, timeStart: true, timeEnd: true, valueUnit: true, position: true },
+        select: {
+          value: true,
+          timeStart: true,
+          timeEnd: true,
+          valueStartUnit: true,
+          valueEndUnit: true,
+          position: true,
+        },
       });
 
       await ctx.db.$transaction(async (tx) => {
-        await tx.scrumPoint.deleteMany({ where: { gameSettingsId: settingsId } });
+        await tx.scrumPoint.deleteMany({
+          where: { gameSettingsId: settingsId },
+        });
         if (items.length) {
           await tx.scrumPoint.createMany({
             data: items.map((it) => ({
@@ -332,7 +380,8 @@ export const gameSettingsRouter = createTRPCRouter({
               value: it.value,
               timeStart: it.timeStart,
               timeEnd: it.timeEnd,
-              valueUnit: it.valueUnit,
+              valueStartUnit: it.valueStartUnit,
+              valueEndUnit: it.valueEndUnit,
               position: it.position,
             })),
           });

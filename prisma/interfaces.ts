@@ -69,7 +69,8 @@ export interface ScrumPoint {
   value: number;
   timeStart: number;
   timeEnd: number;
-  valueUnit: ScrumPointUnit;
+  valueStartUnit: ScrumPointUnit;
+  valueEndUnit: ScrumPointUnit;
   position: number;
   gameSettingsId: string;
   gameSettings?: GameSettings;
@@ -97,7 +98,8 @@ export interface ScrumPointPresetItem {
   value: number;
   timeStart: number;
   timeEnd: number;
-  valueUnit: ScrumPointUnit;
+  valueStartUnit: ScrumPointUnit;
+  valueEndUnit: ScrumPointUnit;
   position: number;
   preset?: ScrumPointPreset;
 }
