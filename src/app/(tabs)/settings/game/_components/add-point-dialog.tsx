@@ -90,7 +90,7 @@ export default function AddPointDialog() {
                 control={form.control}
                 name="value"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="col-span-full">
                     <FormLabel>Value</FormLabel>
                     <FormControl>
                       <InputNumberChevron
@@ -110,7 +110,7 @@ export default function AddPointDialog() {
                 control={form.control}
                 name="valueStartUnit"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="w-full">
                     <FormLabel>Start Unit</FormLabel>
                     <FormControl>
                       <Select
@@ -118,7 +118,7 @@ export default function AddPointDialog() {
                         onValueChange={field.onChange}
                         disabled={saving}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Unit" />
                         </SelectTrigger>
                         <SelectContent>
@@ -140,7 +140,7 @@ export default function AddPointDialog() {
                 control={form.control}
                 name="timeStart"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="w-full">
                     <FormLabel>Time start</FormLabel>
                     <FormControl>
                       <InputNumberChevron
@@ -168,7 +168,7 @@ export default function AddPointDialog() {
                         onValueChange={field.onChange}
                         disabled={saving}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Unit" />
                         </SelectTrigger>
                         <SelectContent>
@@ -206,7 +206,7 @@ export default function AddPointDialog() {
               />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="mt-8">
               <Button
                 type="button"
                 variant="ghost"

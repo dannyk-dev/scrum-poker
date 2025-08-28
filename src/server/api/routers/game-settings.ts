@@ -276,7 +276,13 @@ export const gameSettingsRouter = createTRPCRouter({
         return preset;
       });
     }),
-
+  clearScale: protectedProcedure.mutation(async ({ ctx }) => {
+    const settingsId = await ensureSettings(ctx.db, ctx.orgId as string);
+    await ctx.db.scrumPoint.deleteMany({
+      where: { gameSettingsId: settingsId },
+    });
+    return { ok: true as const };
+  }),
   updatePresetMeta: protectedProcedure
     .input(
       z.object({

@@ -146,8 +146,8 @@ export default function EditPresetDialog({ open, presetId, onOpenChange }: Props
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" isLoading={saving}>
+                  {/* {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} */}
                   Save changes
                 </Button>
               </DialogFooter>

@@ -222,7 +222,7 @@ export default function BehaviorCard() {
           )}
         />
         <div className="flex justify-end md:col-span-2">
-          <Button type="submit" disabled={mutate.isPending || isLoading}>
+          <Button type="submit" isLoading={mutate.isPending || isLoading}>
             Save behavior
           </Button>
         </div>

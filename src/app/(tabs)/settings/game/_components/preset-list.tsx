@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { ClipboardCheck, Loader2, Pencil, Sparkles, Trash } from "lucide-react";
 
 type PresetLite = {
   id: string;
@@ -60,23 +60,25 @@ export default function PresetList({
                 <div className="text-muted-foreground text-xs">{p.description ?? "—"}</div>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 md:auto-cols-max md:grid-flow-col">
+              <div className="grid grid-cols-3 gap-2 md:auto-cols-max md:grid-flow-col">
+                <Button size="sm" variant="default" onClick={() => onApply(p.id)} isLoading={isApplying}>
+                  <Sparkles />
+                  Apply Preset
+                </Button>
                 <Button size="sm" variant="secondary" onClick={() => onEdit(p.id)}>
+                  <Pencil />
                   Edit
                 </Button>
 
-                <Button size="sm" variant="outline" onClick={() => onApply(p.id)} disabled={isApplying}>
-                  {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Apply to scale
-                </Button>
 
-                <Button size="sm" onClick={() => onActivate(p.id)} disabled={isActivating}>
+
+                {/* <Button size="sm" onClick={() => onActivate(p.id)} disabled={isActivating}>
                   {isActivating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Set active
-                </Button>
+                </Button> */}
 
-                <Button size="sm" variant="destructive" onClick={() => onDelete(p.id)} disabled={isDeleting}>
-                  {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button size="sm" variant="destructive" onClick={() => onDelete(p.id)} isLoading={isDeleting}>
+                  <Trash />
                   Delete
                 </Button>
               </div>
