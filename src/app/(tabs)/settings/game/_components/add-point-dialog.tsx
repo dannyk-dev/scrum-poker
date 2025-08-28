@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ScrumPointUnit } from "@prisma/client";
 import { api } from "@/trpc/react";
@@ -31,6 +31,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import InputNumberChevron from "@/components/ui/input-number-chevron";
 
 const schema = z.object({
   value: z.number().int(),
@@ -59,6 +60,8 @@ export default function AddPointDialog() {
     },
   });
 
+  const saving = addPoint.isPending;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -68,6 +71,7 @@ export default function AddPointDialog() {
         <DialogHeader>
           <DialogTitle>Add point</DialogTitle>
         </DialogHeader>
+
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((v) =>
@@ -81,6 +85,7 @@ export default function AddPointDialog() {
             className="space-y-4"
           >
             <div className="grid grid-cols-2 gap-3">
+              {/* Value */}
               <FormField
                 control={form.control}
                 name="value"
@@ -88,16 +93,19 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Value</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <InputNumberChevron
+                        className="w-full"
                         value={field.value}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(val) => field.onChange(Number(val))}
+                        isDisabled={saving}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Start Unit */}
               <FormField
                 control={form.control}
                 name="valueStartUnit"
@@ -108,6 +116,7 @@ export default function AddPointDialog() {
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        disabled={saving}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Unit" />
@@ -125,6 +134,8 @@ export default function AddPointDialog() {
                   </FormItem>
                 )}
               />
+
+              {/* Time start */}
               <FormField
                 control={form.control}
                 name="timeStart"
@@ -132,17 +143,19 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Time start</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
+                      <InputNumberChevron
+                        className="w-full"
                         value={field.value}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(val) => field.onChange(Number(val))}
+                        isDisabled={saving}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* End Unit */}
               <FormField
                 control={form.control}
                 name="valueEndUnit"
@@ -153,6 +166,7 @@ export default function AddPointDialog() {
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}
+                        disabled={saving}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Unit" />
@@ -170,6 +184,8 @@ export default function AddPointDialog() {
                   </FormItem>
                 )}
               />
+
+              {/* Time end */}
               <FormField
                 control={form.control}
                 name="timeEnd"
@@ -177,11 +193,11 @@ export default function AddPointDialog() {
                   <FormItem>
                     <FormLabel>Time end</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
+                      <InputNumberChevron
+                        className="w-full"
                         value={field.value}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(val) => field.onChange(Number(val))}
+                        isDisabled={saving}
                       />
                     </FormControl>
                     <FormMessage />
@@ -189,15 +205,17 @@ export default function AddPointDialog() {
                 )}
               />
             </div>
+
             <DialogFooter>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setOpen(false)}
+                disabled={saving}
               >
                 Cancel
               </Button>
-              <Button type="submit" isLoading={addPoint.isPending}>
+              <Button type="submit" isLoading={saving} disabled={saving}>
                 Add
               </Button>
             </DialogFooter>
