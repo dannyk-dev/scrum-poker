@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import InputNumberChevron from "@/components/ui/input-number-chevron";
 
 export default function ScaleCard() {
   const utils = api.useUtils();
@@ -94,7 +95,7 @@ export default function ScaleCard() {
               <TableRow key={p.id}>
                 <TableCell>
                   <Input
-                    className="w-24"
+                    className="w-full max-w-32"
                     type="number"
                     value={p.value}
                     onChange={(e) =>
@@ -115,7 +116,7 @@ export default function ScaleCard() {
                       })
                     }
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full max-w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -128,15 +129,14 @@ export default function ScaleCard() {
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Input
-                    className="w-24"
-                    type="number"
-                    min={0}
+                  <InputNumberChevron
+                    className="w-fit max-w-32"
+                    defaultValue={p.timeStart}
                     value={p.timeStart}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       updatePoint.mutate({
                         id: p.id,
-                        timeStart: Number(e.target.value),
+                        timeStart: Number(val),
                       })
                     }
                   />
@@ -144,6 +144,7 @@ export default function ScaleCard() {
                 <TableCell>
                   <Select
                     value={p.valueEndUnit}
+                    className="w-full max-w-32"
                     onValueChange={(v) =>
                       updatePoint.mutate({
                         id: p.id,
@@ -164,15 +165,14 @@ export default function ScaleCard() {
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Input
-                    className="w-24"
-                    type="number"
-                    min={0}
+                  <InputNumberChevron
+                    className="w-fit max-w-32"
                     value={p.timeEnd}
-                    onChange={(e) =>
+                    defaultValue={p.timeEnd}
+                    onChange={(val) =>
                       updatePoint.mutate({
                         id: p.id,
-                        timeEnd: Number(e.target.value),
+                        timeEnd: Number(val),
                       })
                     }
                   />
