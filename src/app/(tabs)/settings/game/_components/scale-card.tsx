@@ -22,10 +22,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import InputNumberChevron from "@/components/ui/input-number-chevron";
+import {
+  Check,
+  X,
+  ArrowUp,
+  ArrowDown,
+  Loader2,
+} from "lucide-react";
+
+type PointDraft = {
+  value: number;
+  valueStartUnit: ScrumPointUnit;
+  timeStart: number;
+  valueEndUnit: ScrumPointUnit;
+  timeEnd: number;
+};
 
 export default function ScaleCard() {
   const utils = api.useUtils();
-  const { data } = api.gameSettings.get.useQuery(undefined, {
+  const { data, isLoading } = api.gameSettings.get.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
   const points = data?.points ?? [];
@@ -43,15 +58,68 @@ export default function ScaleCard() {
     onSuccess: () => utils.gameSettings.get.invalidate(),
   });
 
-  const moveRow = (index: number, dir: -1 | 1) => {
+  // Local UI state
+  const [editing, setEditing] = React.useState<Record<string, PointDraft | undefined>>({});
+  const [savingRowId, setSavingRowId] = React.useState<string | null>(null);
+  const [removingId, setRemovingId] = React.useState<string | null>(null);
+  const [reorderingKey, setReorderingKey] = React.useState<string | null>(null); // `${id}:${dir}`
+
+  const startEditIfNeeded = (id: string, seed: PointDraft) => {
+    setEditing((prev) => (prev[id] ? prev : { ...prev, [id]: { ...seed } }));
+  };
+
+  const patchDraft = (id: string, patch: Partial<PointDraft>, seed: PointDraft) => {
+    startEditIfNeeded(id, seed);
+    setEditing((prev) => ({ ...prev, [id]: { ...(prev[id] ?? seed), ...patch } }));
+  };
+
+  const cancelRow = (id: string) => {
+    setEditing((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const acceptRow = async (id: string) => {
+    const draft = editing[id];
+    if (!draft) return;
+    const original = points.find((p) => p.id === id);
+    if (!original) return;
+
+    setSavingRowId(id);
+    try {
+      const ops: Promise<unknown>[] = [];
+      if (draft.value !== original.value)
+        ops.push(updatePoint.mutateAsync({ id, value: draft.value }));
+      if (draft.valueStartUnit !== original.valueStartUnit)
+        ops.push(updatePoint.mutateAsync({ id, valueStartUnit: draft.valueStartUnit }));
+      if (draft.timeStart !== original.timeStart)
+        ops.push(updatePoint.mutateAsync({ id, timeStart: draft.timeStart }));
+      if (draft.valueEndUnit !== original.valueEndUnit)
+        ops.push(updatePoint.mutateAsync({ id, valueEndUnit: draft.valueEndUnit }));
+      if (draft.timeEnd !== original.timeEnd)
+        ops.push(updatePoint.mutateAsync({ id, timeEnd: draft.timeEnd }));
+
+      await Promise.all(ops);
+      cancelRow(id);
+    } finally {
+      setSavingRowId(null);
+    }
+  };
+
+  const moveRow = async (index: number, dir: -1 | 1) => {
     const next = index + dir;
     if (next < 0 || next >= points.length) return;
     const orderedIds = points.map((p) => p.id);
-    [orderedIds[index], orderedIds[next]] = [
-      orderedIds[next],
-      orderedIds[index],
-    ];
-    reorderPoints.mutate({ orderedIds });
+    [orderedIds[index], orderedIds[next]] = [orderedIds[next], orderedIds[index]];
+    const key = `${orderedIds[index]}:${dir}`;
+    setReorderingKey(key);
+    try {
+      await reorderPoints.mutateAsync({ orderedIds });
+    } finally {
+      setReorderingKey(null);
+    }
   };
 
   return (
@@ -71,147 +139,206 @@ export default function ScaleCard() {
             }));
             replaceScale.mutate({ points: items });
           }}
-          isLoading={replaceScale.isPending}
+          disabled={replaceScale.isPending}
         >
+          {replaceScale.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Load Fibonacci
         </Button>
       </div>
 
       <div className="overflow-x-auto rounded-md border">
         <Table>
-          <TableHeader className="bg-muted sticky top-0 z-10">
+          <TableHeader className="bg-muted/60 sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
             <TableRow>
-              <TableHead>Value</TableHead>
-              <TableHead>Unit (start)</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Unit (end)</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Position</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="w-[120px]">Value</TableHead>
+              <TableHead className="w-[160px]">Unit (start)</TableHead>
+              <TableHead className="w-[140px]">Time</TableHead>
+              <TableHead className="w-[160px]">Unit (end)</TableHead>
+              <TableHead className="w-[140px]">Time</TableHead>
+              <TableHead className="w-[90px] text-center">Pos</TableHead>
+              <TableHead className="w-[220px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
-            {points.map((p, idx) => (
-              <TableRow key={p.id}>
-                <TableCell>
-                  <Input
-                    className="w-full max-w-32"
-                    type="number"
-                    value={p.value}
-                    onChange={(e) =>
-                      updatePoint.mutate({
-                        id: p.id,
-                        value: Number(e.target.value),
-                      })
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={p.valueStartUnit}
-                    onValueChange={(v) =>
-                      updatePoint.mutate({
-                        id: p.id,
-                        valueStartUnit: v as ScrumPointUnit,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full max-w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(ScrumPointUnit).map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <InputNumberChevron
-                    className="w-fit max-w-32"
-                    defaultValue={p.timeStart}
-                    value={p.timeStart}
-                    onChange={(val) =>
-                      updatePoint.mutate({
-                        id: p.id,
-                        timeStart: Number(val),
-                      })
-                    }
-                  />
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={p.valueEndUnit}
-                    className="w-full max-w-32"
-                    onValueChange={(v) =>
-                      updatePoint.mutate({
-                        id: p.id,
-                        valueEndUnit: v as ScrumPointUnit,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(ScrumPointUnit).map((u) => (
-                        <SelectItem key={u} value={u}>
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <InputNumberChevron
-                    className="w-fit max-w-32"
-                    value={p.timeEnd}
-                    defaultValue={p.timeEnd}
-                    onChange={(val) =>
-                      updatePoint.mutate({
-                        id: p.id,
-                        timeEnd: Number(val),
-                      })
-                    }
-                  />
-                </TableCell>
-                <TableCell>{p.position}</TableCell>
-                <TableCell className="px-3 py-2">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => moveRow(idx, -1)}
-                      disabled={idx === 0}
+            {points.map((p, idx) => {
+              const rowDraft = editing[p.id];
+              const row = rowDraft ?? (p as PointDraft);
+              const isEditing = !!rowDraft;
+              const rowSaving = savingRowId === p.id;
+              const seed: PointDraft = {
+                value: p.value,
+                valueStartUnit: p.valueStartUnit,
+                timeStart: p.timeStart,
+                valueEndUnit: p.valueEndUnit,
+                timeEnd: p.timeEnd,
+              };
+
+              return (
+                <TableRow
+                  key={p.id}
+                  className={isEditing ? "bg-muted/30 hover:bg-muted/40" : undefined}
+                >
+                  <TableCell>
+                    <Input
+                      className="w-full max-w-32"
+                      type="number"
+                      value={row.value}
+                      disabled={rowSaving}
+                      onChange={(e) =>
+                        patchDraft(p.id, { value: Number(e.target.value) }, seed)
+                      }
+                    />
+                  </TableCell>
+
+                  <TableCell>
+                    <Select
+                      value={row.valueStartUnit}
+                      onValueChange={(v) =>
+                        patchDraft(p.id, { valueStartUnit: v as ScrumPointUnit }, seed)
+                      }
+                      disabled={rowSaving}
                     >
-                      ↑
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => moveRow(idx, +1)}
-                      disabled={idx === points.length - 1}
+                      <SelectTrigger className="w-full max-w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(ScrumPointUnit).map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+
+                  <TableCell>
+                    <InputNumberChevron
+                      className="w-fit max-w-32"
+                      value={row.timeStart}
+                      onChange={(val) =>
+                        patchDraft(p.id, { timeStart: Number(val) }, seed)
+                      }
+                      isDisabled={rowSaving}
+                    />
+                  </TableCell>
+
+                  <TableCell>
+                    <Select
+                      value={row.valueEndUnit}
+                      onValueChange={(v) =>
+                        patchDraft(p.id, { valueEndUnit: v as ScrumPointUnit }, seed)
+                      }
+                      disabled={rowSaving}
                     >
-                      ↓
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removePoint.mutate({ id: p.id })}
-                      isLoading={removePoint.isPending}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {points.length === 0 && (
+                      <SelectTrigger className="w-full max-w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(ScrumPointUnit).map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+
+                  <TableCell>
+                    <InputNumberChevron
+                      className="w-fit max-w-32"
+                      value={row.timeEnd}
+                      onChange={(val) =>
+                        patchDraft(p.id, { timeEnd: Number(val) }, seed)
+                      }
+                      isDisabled={rowSaving}
+                    />
+                  </TableCell>
+
+                  <TableCell className="text-center text-muted-foreground">
+                    {p.position}
+                  </TableCell>
+
+                  <TableCell className="px-3 py-2">
+                    <div className="flex justify-end gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => acceptRow(p.id)}
+                            disabled={rowSaving}
+                          >
+                            {rowSaving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => cancelRow(p.id)}
+                            disabled={rowSaving}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => moveRow(idx, -1)}
+                            disabled={idx === 0 || reorderPoints.isPending}
+                          >
+                            {reorderingKey === `${p.id}:-1` && (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            )}
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => moveRow(idx, +1)}
+                            disabled={idx === points.length - 1 || reorderPoints.isPending}
+                          >
+                            {reorderingKey === `${p.id}:1` && (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            )}
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async () => {
+                              setRemovingId(p.id);
+                              try {
+                                await removePoint.mutateAsync({ id: p.id });
+                              } finally {
+                                setRemovingId(null);
+                              }
+                            }}
+                            disabled={removingId === p.id}
+                          >
+                            {removingId === p.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Remove"
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+
+            {(!isLoading && points.length === 0) && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-muted-foreground px-3 py-8 text-center"
                 >
                   No points yet.
