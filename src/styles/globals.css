@@ -166,3 +166,9 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+html, body, #__next { height: 100%; }
+body { background: hsl(var(--background)); }
+
+/* optional: smooth color changes */
+.page { @apply transition-opacity duration-150; }

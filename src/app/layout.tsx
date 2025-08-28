@@ -44,7 +44,7 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <PageTransition>
+          {/* <PageTransition> */}
             <SessionProvider session={session}>
             <TRPCReactProvider>
               <HydrateClient>
@@ -55,7 +55,7 @@ export default async function RootLayout({
               <Toaster closeButton position="bottom-right" expand />
             </TRPCReactProvider>
           </SessionProvider>
-          </PageTransition>
+          {/* </PageTransition> */}
         </ThemeProvider>
       </body>
     </html>
